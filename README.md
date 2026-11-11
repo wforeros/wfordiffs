@@ -21,7 +21,7 @@ Optional:
   Without it the mod still works, but falls back to the built-in lexer, which
   only colors js/ts, python and shell; JSON, `.zshrc`, `.md`, `.lua` and the
   rest come out in one color. Marked as `shortcut:` in `mod/main.js`.
-- **`node`**: only for the tests. `install.sh` skips them when it's missing.
+- **`node`**: only for the tests (`npm test`). `install.sh` skips them when it's missing.
 - **`wslpath`**: only when installing from WSL against the Windows app.
 
 Where it runs: a mod's `exec` runs on the app's host, that is, Windows. When
@@ -69,24 +69,14 @@ person's `keys.json` (and in tmux-prefix). See the `dots` repo's `herdr/app`.
 
 ## Long lines
 
-The list scrolls down only: the file rows keep their place, and their `+N`/`−N`
-counts stay at the right edge whatever a diff below does.
+The list scrolls down only, so the file rows and their `+N`/`−N` counts stay put. A
+file that is open and holds a line wider than the panel gets a horizontal bar of its own,
+along the bottom of *that* file: sideways wheel (or shift+wheel), drag its thumb, or click
+the track to jump. Files whose lines fit get none. The bar follows the panel's size.
 
-A file that is open and holds a line wider than the panel gets a horizontal bar
-of its own, along the bottom of *that* file: sideways wheel (or shift+wheel, for
-a mouse), drag its thumb, or click the track to jump. A file whose lines fit
-gets none, and the other files are unaffected. The bar takes its length from the
-panel (percentages, not pixels), so resizing the panel or the tab resizes it, and
-a press jumps the thumb under the pointer before dragging. A plain vertical wheel always
-scrolls the list: the sideways motion is the mod's own, not a second scroll area
-on top of the list, which made both move at once and the panel drift diagonally. The header's **wrap** button drops all those
-bars and breaks long lines onto more rows instead, keeping their colors; the
-line numbers stay on the first row, and the wrapped rest sits under the text
-with no numbers of its own. The choice is per panel copy, not saved.
-
-Layout notes, if you touch the render: never nest a second scroll area inside the
-list (that is what made the wheel scroll both axes); the sideways offset is
-applied as a negative left margin on that file's rows, clipped by the box.
+The header's **wrap** button drops the bars and breaks long lines onto more rows instead,
+keeping their colors; the line numbers stay on the first row. The choice is per panel copy,
+not saved. How it is built is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Behavior
 
@@ -114,5 +104,7 @@ applied as a negative left margin on that file's rows, clipped by the box.
 ## Tests
 
 ```sh
-node tests/run.mjs
+npm test    # node --test tests/*.test.mjs; no dependencies
 ```
+
+`bat` tests are skipped when it isn't installed.
