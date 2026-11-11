@@ -79,9 +79,11 @@ keeping their colors; the line numbers stay on the first row. The choice is per 
 not saved.
 
 The header's **tree** button adds a column on the right of the list: the same changes, as a tree
-(each folder that holds a change, with its +/− totals, the files under it, and guide lines joining
-them). The list on the left stays as it is. Diffs open in either column. It is off by default and,
-like wrap, is not saved. How it is built is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+(each folder that holds a change and the files under it; a vertical line runs from each
+folder's chevron down to its last row). Each folder has a chevron to fold or unfold its contents; files show just their icon,
+and a click on one opens its diff. The list on the left stays as it is. Drag the line between the two to make the tree wider
+or narrower (the list gets what is left). A click on a file in the tree opens its diff in the list (the tree only names the files). It is off by default and,
+like wrap and the split, is not saved. How it is built is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Colors of the diff
 
@@ -102,7 +104,8 @@ clear the selection.
 
 ## Open in nvim
 
-Each row (except deleted files) has a small nvim icon next to its counts. It runs
+Each row of the list (except deleted files) has a small nvim icon next to its counts. The tree
+has neither: its rows only show where the changes are. It runs
 `nvim <path>` in the repo's folder (on the same machine as the repo) in a big dialog over
 the panel; when you quit nvim the dialog closes itself and you are back in Changes. Needs
 `nvim` on the PATH of the terminals Herdr starts there. The icon is Neovim's mark from

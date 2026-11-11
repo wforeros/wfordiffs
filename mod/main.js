@@ -26,8 +26,10 @@ const ICONS = { M: "modified_file", A: "new_file", D: "deleted_file" };
 const FIND_NVIM = 'for n in nvim /home/linuxbrew/.linuxbrew/bin/nvim /usr/local/bin/nvim "$HOME/.local/bin/nvim" /usr/bin/nvim /opt/nvim/bin/nvim; do command -v "$n" >/dev/null 2>&1 && exec "$n" "$@"; done; echo "nvim not found: install it, or put it on the PATH the app starts terminals with"; sleep 8';
 
 const POLL_MS = 5000;
+// The tree column's share of the body when the tree is on, kept between these by the divider.
+const SPLIT_MIN = 0.2, SPLIT_MAX = 0.8;
 // How far each level of the tree is pushed right, in px at 12px. A row's first 12px are its
-// chevron (or nothing, for a folder); its guide lines run through the middle of those.
+// chevron (a file in the tree has an empty slot); its guide lines run through the middle of those.
 const INDENT = 14, SLOT = 12;
 // shortcut: expand-all opens at most this many files, each one is a git diff call; raise it if you need more.
 const EXPAND_MAX = 50;
@@ -47,6 +49,8 @@ export default class GitDiff extends View {
     this.wrap = false; // off: one row per line and a horizontal bar; on: long lines break
     // On: the files show as a tree (folders with changes, then their files) in a column on the right.
     this.tree = false;
+    this.folded = new Set(); // the tree's folders that are collapsed, by path ("" is the root)
+    this.split = 0.5; this.splitDrag = null; this.bodyW = 0; // the divider between the columns: { x, start } while dragged
     this.offsets = {}; // per file id: sideways offset in pixels
     this.drag = null;  // { id, startX, startOff } while dragging a bar
     this.widths = {}; // per scroll area (the list, the tree): its width, to size each file's bar
@@ -111,6 +115,13 @@ export default class GitDiff extends View {
     });
   }
 
+  // A tree folder: collapsed, its contents leave the list; open again, they come back.
+  toggleFold(path, cx) {
+    if (this.folded.has(path)) this.folded.delete(path);
+    else this.folded.add(path);
+    cx.notify();
+  }
+
   toggle(path, cx) {
     if (this.open.has(path)) this.open.delete(path);
     else { this.open.add(path); this.ensure(path, cx); }
@@ -152,34 +163,30 @@ export default class GitDiff extends View {
   // Left padding of a row at this depth: the tree starts flush left; the list keeps its margin.
   pad(e) { return this.px((e.tree ? 0 : 10) + e.depth * INDENT); }
 
-  // The guide lines of a tree row: from its parent's chevron slot down to it (an elbow), and,
-  // for each ancestor that has later siblings, a line that runs the whole height of the row.
+  // The tree's guide lines: a folder's line runs down from its chevron past its rows and stops at
+  // its last one (through: false), and an open folder's line starts at its chevron (hangs).
   guides(e, t) {
-    if (!e.tree || e.depth < 1) return [];
-    const color = t.border, lines = [];
-    const x = (depth) => this.px(depth * INDENT + SLOT / 2);
-    // An ancestor's line through this row, for the ancestors above the parent (the parent's own
-    // line is the elbow's, below): the ancestor at depth a runs down column a.
-    for (let a = 1; a <= e.depth - 2; a++) {
-      if (e.guides[a - 1]) lines.push(div().absolute().left(x(a)).top(0).w(1).h(this.px(28)).bg(color));
-    }
-    // The elbow: down from the parent's chevron to the middle of this row, then right to it.
-    // A row that is not the last of its siblings carries the line on down to the next one.
-    const parent = e.depth - 1;
-    lines.push(div().absolute().left(x(parent)).top(0).w(1).h(this.px(e.last ? 14 : 28)).bg(color));
-    lines.push(div().absolute().left(x(parent)).top(this.px(14)).w(this.px(e.depth * INDENT - parent * INDENT - SLOT / 2 - 2)).h(1).bg(color));
+    if (!e.tree || !e.through) return [];
+    // Each line sits on the middle of its folder's chevron (the chevron's box is px(SLOT) wide, the
+    // line is 1px); a folder's line starts a little below its chevron, not on top of it.
+    // A folder's last row: its line ends at the foot of that row's name (the text's middle plus half
+    // its box), not at the middle.
+    const color = t.border, full = this.px(28), end = this.px(14 + SLOT / 2);
+    const x = (depth) => this.px(depth * INDENT) + Math.round(this.px(SLOT) / 2) - 0.5;
+    const below = this.px(14 + SLOT / 2 + 3);
+    const lines = e.through.map((through, c) => div().absolute().left(x(c)).top(0).w(1).h(through ? full : end).bg(color));
+    if (e.hangs) lines.push(div().absolute().left(x(e.depth)).top(below).w(1).h(full - below).bg(color));
     return lines;
   }
 
   // A folder with changes (tree view): its name and the totals below it. Not clickable.
   dirRow(e, t) {
-    const added = this.cfg.added ?? t.ansi2, removed = this.cfg.removed ?? t.ansi1;
-    return h_flex().id(`d-${e.path}`).relative().w_full().h(this.px(28)).pl(this.pad(e)).pr(10).gap(8).items_center()
+    return h_flex().id(`d-${e.path}`).relative().w_full().h(this.px(28)).pl(this.pad(e)).pr(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .children(this.guides(e, t))
-      .child(div().w(SLOT).flex_none())
+      .on_click((_e, cx) => this.toggleFold(e.path, cx))
+      .child(svg(`mods/herdr-gitdiff/icons/chevron-${e.open ? "down" : "right"}.svg`).size(this.px(SLOT)).flex_none().text_color(t.dim))
       .child(svg("mods/herdr-gitdiff/icons/folder.svg").size(14).flex_none().text_color(t.dim))
-      .child(div().flex_1().min_w(0).truncate().when(e.depth === 0, (x) => x.font_semibold().text_color(t.foreground)).when(e.depth !== 0, (x) => x.text_color(t.muted)).child(e.name))
-      .child(h_flex().flex_none().gap(6).child(div().text_size(this.px(11)).text_color(added).child(`+${e.add}`)).child(div().text_size(this.px(11)).text_color(removed).child(`−${e.del}`)));
+      .child(div().flex_1().min_w(0).truncate().when(e.depth === 0, (x) => x.font_semibold().text_color(t.foreground)).when(e.depth !== 0, (x) => x.text_color(t.muted)).child(e.name));
   }
 
   // Full width, so the counts stay at the right edge whatever a diff below does.
@@ -193,16 +200,18 @@ export default class GitDiff extends View {
     return h_flex().id(`${col}-f-${f.path}`).relative().w_full().h(this.px(28)).pl(this.pad(e)).pr(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .children(this.guides(e, t))
       .on_click((_e, cx) => this.toggle(f.path, cx))
-      .child(svg(`mods/herdr-gitdiff/icons/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim))
+      // A file in the tree has no chevron, only its icon (kept in the folders' column so they line up).
+      .child(e.tree ? div().w(this.px(SLOT)).flex_none() : svg(`mods/herdr-gitdiff/icons/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim))
       .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(14).flex_none().text_color(color).tooltip(icon.replace("_", " ")))
       .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(!e.tree && parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name)))
-      .when(f.status !== "D", (e) => e.child(div().id(`${col}-nvim-${f.path}`).w(this.px(20)).h(this.px(20)).flex_none().rounded(4).flex().items_center().justify_center()
+      // The tree shows only where the changes are: the line counts and nvim are the list's.
+      .when(!e.tree && f.status !== "D", (x) => x.child(div().id(`${col}-nvim-${f.path}`).w(this.px(20)).h(this.px(20)).flex_none().rounded(4).flex().items_center().justify_center()
         .cursor_pointer().hover((x) => x.bg(t.hover)).tooltip("Open in nvim")
         .on_click((_e, cx) => { cx.stop_propagation(); this.openNvim(f.path, cx); })
         .child(svg("mods/herdr-gitdiff/icons/nvim.svg").size(this.px(13)).text_color(t.muted))))
-      .child(f.binary ? div().flex_none().text_size(this.px(11)).text_color(t.dim).child("binary")
+      .when(!e.tree, (x) => x.child(f.binary ? div().flex_none().text_size(this.px(11)).text_color(t.dim).child("binary")
         // Close together, like the totals in the header.
-        : h_flex().flex_none().gap(6).child(div().text_size(this.px(11)).text_color(added).child(`+${f.add}`)).child(div().text_size(this.px(11)).text_color(removed).child(`−${f.del}`)));
+        : h_flex().flex_none().gap(6).child(div().text_size(this.px(11)).text_color(added).child(`+${f.add}`)).child(div().text_size(this.px(11)).text_color(removed).child(`−${f.del}`))));
   }
 
   codeRow(row, path, t, width, i, col = "") {
@@ -253,10 +262,11 @@ export default class GitDiff extends View {
   // The rows of the list, in order: folders (tree view only) and files. A file that is open
   // carries its diff as well.
   groups(tree) {
-    const entries = (tree ? treeRows(this.files, this.root ? this.root.split(/[\\/]/).pop() : null)
-      : this.files.map((file) => ({ kind: "file", file, name: file.path, depth: 0, guides: [], last: true }))).map((e) => ({ ...e, tree }));
+    const entries = (tree ? treeRows(this.files, this.root ? this.root.split(/[\\/]/).pop() : null, this.folded)
+      : this.files.map((file) => ({ kind: "file", file, name: file.path, depth: 0 }))).map((e) => ({ ...e, tree }));
     return entries.map((e, i) => {
-      if (e.kind === "dir" || !this.open.has(e.file.path)) return e;
+      // The tree only names the files: a file's diff opens in the list (the click toggles it there).
+      if (e.kind === "dir" || e.tree || !this.open.has(e.file.path)) return e;
       const body = this.diffs[e.file.path];
       if (!body) return { ...e, body: [{ kind: "@", text: "Loading…" }], width: 0, id: `gv-${i}` };
       // What the widest row needs: the gutters, then the text.
@@ -272,7 +282,13 @@ export default class GitDiff extends View {
     if (props()?.settings) return settingsView(t, this.cfg);
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
     const empty = this.error || (this.loading ? "Loading changes…" : this.root ? "No changes" : "No folder");
-    return v_flex().id("herdr-gitdiff").size_full().on_mouse_up("left", (_e, cx) => {
+    return v_flex().id("herdr-gitdiff").size_full().on_mouse_move((e, cx) => {
+        // Dragging the divider: to the right makes the list wider, so the tree narrower.
+        if (!this.splitDrag || !this.bodyW) return;
+        const next = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, this.splitDrag.start - (e.position.x - this.splitDrag.x) / this.bodyW));
+        if (next !== this.split) { this.split = next; cx.notify(); }
+      }).on_mouse_up("left", (_e, cx) => {
+        if (this.splitDrag) { this.splitDrag = null; cx.notify(); }
         // Releasing ends the selection and copies its reference.
         if (!this.dragging) return;
         this.dragging = false; this.copySelection(cx); cx.notify();
@@ -298,8 +314,18 @@ export default class GitDiff extends View {
       .child(this.files.length === 0 ? div().flex_1().min_h(0).p(12).text_color(t.dim).child(empty)
         // The list is always here; the tree, when on, is a column of its own on the right.
         : h_flex().flex_1().min_h(0).items_stretch()
-          .child(this.area("herdr-gitdiff-list", this.groups(false), t))
-          .when(this.tree, (e) => e.child(div().w(1).flex_none().bg(t.border)).child(this.area("herdr-gitdiff-tree", this.groups(true), t))));
+          .on_size_change((size, cx) => { if (size.width !== this.bodyW) { this.bodyW = size.width; cx.notify(); } })
+          // With the tree on, the list takes its share of the body (the tree takes the rest); before
+          // the body is measured, both share it evenly.
+          .child(this.area("herdr-gitdiff-list", this.groups(false), t, this.tree && this.bodyW ? Math.round(this.bodyW * (1 - this.split)) : null))
+          .when(this.tree, (e) => e.child(this.divider(t)).child(this.area("herdr-gitdiff-tree", this.groups(true), t, null))));
+  }
+
+  // The line between the columns. Drag it to make the tree wider or narrower.
+  divider(t) {
+    return div().id("herdr-gitdiff-split").w(8).flex_none().flex().justify_center().cursor_col_resize()
+      .on_mouse_down("left", (e, cx) => { this.splitDrag = { x: e.position.x, start: this.split }; cx.stop_propagation(); cx.notify(); })
+      .child(div().w(1).h_full().bg(t.border));
   }
 
   // One scroll area of rows: the list, or the tree beside it. It scrolls down only: the rows keep
@@ -307,11 +333,12 @@ export default class GitDiff extends View {
   // column's, which its diffs' bars are sized from.
   // shortcut: one overflow area plus one Scrollbar per axis; the single overflow_scrollbar() call
   // leaves this panel stuck on "could not be re-rendered".
-  area(id, groups, t) {
+  area(id, groups, t, basis) {
     const width = this.widths[id] ?? 0;
     // The open diffs' sideways offsets are kept per column: the same file can show in both.
     const rows = groups.map((g) => (g.body ? { ...g, id: `${id}-${g.id}` } : g));
-    return div().flex_1().min_w(0).min_h(0).relative()
+    return div().min_w(0).min_h(0).relative()
+      .when(basis === null, (e) => e.flex_1()).when(basis !== null, (e) => e.w(basis).flex_none())
       .on_size_change((size, cx) => { if (size.width !== this.widths[id]) { this.widths[id] = size.width; cx.notify(); } })
       .child(v_flex().id(id).absolute().inset_0().overflow_y_scroll()
         .child(v_flex().w_full().children(rows.flatMap((g) => {

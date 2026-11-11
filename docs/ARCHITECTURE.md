@@ -47,3 +47,15 @@ with the folders that hold a change (`treeRows`), with a 1px divider between the
 its own `area()`: a scroll area with its own width (`this.widths[id]`, which sizes its diffs'
 bars) and its own sideways offsets. Both can show the same file, so each column's ids and row
 keys carry its prefix (`groups(tree)` marks the entries, `codeRow`'s `col`).
+
+The line between them is `divider()`: a press on it starts a drag (`splitDrag`), the panel's
+`on_mouse_move` moves `split` (the tree's share of the body, `SPLIT_MIN`..`SPLIT_MAX`), and the
+release ends it. The list's width is `bodyW * (1 - split)` in px, from the body's `on_size_change`;
+until the body is measured the two columns share it evenly.
+
+## Folding the tree
+
+`this.folded` holds the paths of the collapsed folders (`""` is the root). `treeRows` still returns a
+collapsed folder's row, with `open: false`, but not the rows under it. A click on a folder row
+(its chevron included) toggles its path in the set. Files in the tree have no chevron: a
+spacer keeps their icons in line with the folders' icons, and a click opens the diff.

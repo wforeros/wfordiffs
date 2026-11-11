@@ -26,12 +26,11 @@ test("root files come after the folders", () => {
   ]);
 });
 
-test("a folder row carries the totals of the changes below it, and its path", () => {
-  const rows = treeRows([f("src/a.js", 3, 1), f("src/lib/b.js", 2, 4), f("src/lib/c.js", 0, 5), f("top.js", 9, 9)]);
-  const src = rows.find((r) => r.kind === "dir" && r.name === "src");
+test("a folder row carries its path, and no line counts (those are the list's)", () => {
+  const rows = treeRows([f("src/a.js", 3, 1), f("src/lib/b.js", 2, 4)]);
   const lib = rows.find((r) => r.kind === "dir" && r.name === "lib");
-  assert.deepEqual([src.path, src.add, src.del, src.depth], ["src", 5, 10, 0]);
-  assert.deepEqual([lib.path, lib.add, lib.del, lib.depth], ["src/lib", 2, 9, 1]);
+  assert.deepEqual([lib.path, lib.depth], ["src/lib", 1]);
+  assert.equal("add" in lib || "del" in lib, false);
 });
 
 test("a file row keeps its file and shows only its own name", () => {
@@ -49,23 +48,47 @@ test("no files, no rows", () => {
 
 test("rootName adds the top folder at depth 0, and everything hangs from it", () => {
   const rows = treeRows([f("src/a.js"), f("b.js")], "repo");
-  assert.deepEqual(rows.map((r) => [r.kind, r.name, r.depth, r.last]), [
-    ["dir", "repo", 0, true],
-    ["dir", "src", 1, false],
-    ["file", "a.js", 2, true],
-    ["file", "b.js", 1, true],
+  assert.deepEqual(rows.map((r) => [r.kind, r.name, r.depth]), [
+    ["dir", "repo", 0],
+    ["dir", "src", 1],
+    ["file", "a.js", 2],
+    ["file", "b.js", 1],
   ]);
 });
 
-test("guides: an ancestor with later siblings keeps its line running past the rows below it", () => {
+test("lines: a folder's line runs down past its rows and stops at its last one", () => {
+  // repo / a / x / 1.js, then a / y.js, then b.js (directly under repo)
   const rows = treeRows([f("a/x/1.js"), f("a/y.js"), f("b.js")], "repo");
   const at = (name) => rows.find((r) => r.name === name);
-  // "1.js" sits under a/x: a has b.js after it and x has y.js after it, so both lines run past it.
-  assert.deepEqual(at("1.js").guides, [true, true]);
-  // "y.js" is the last child of a, and a has b.js after it: a's line runs past y.js, and it ends at y.js.
-  assert.deepEqual(at("y.js").guides, [true]);
-  assert.equal(at("y.js").last, true);
-  assert.equal(at("x").last, false);
-  // b.js is a top-level item, last of the repo: nothing runs past it.
-  assert.deepEqual(at("b.js").guides, []);
+  // repo's line runs past everything but b.js, its last row
+  assert.deepEqual(at("a").through, [true]);
+  // a's line runs past x, and stops at y.js, its last row
+  assert.deepEqual(at("x").through, [true, true]);
+  assert.deepEqual(at("y.js").through, [true, false]);
+  // 1.js ends x's line (its last row) and runs repo's on, since b.js comes after
+  assert.deepEqual(at("1.js").through, [true, true, false]);
+  assert.deepEqual(at("b.js").through, [false]);
+});
+
+test("hangs: only a folder with rows under it starts a line from its chevron", () => {
+  const rows = treeRows([f("a/x/1.js"), f("a/y.js"), f("b.js")], "repo");
+  const at = (name) => rows.find((r) => r.name === name);
+  assert.equal(at("repo").hangs, true);
+  assert.equal(at("a").hangs, true);
+  assert.equal(at("x").hangs, true);
+  assert.equal(at("1.js").hangs, undefined);
+  assert.equal(at("b.js").hangs, undefined);
+});
+
+test("a folded folder keeps its row (closed) and drops what is under it", () => {
+  const files = [f("src/a/x.js"), f("src/b.js"), f("top.js")];
+  const rows = treeRows(files, "repo", new Set(["src"]));
+  assert.deepEqual(rows.map((r) => [r.kind, r.name, r.open ?? null]), [
+    ["dir", "repo", true],
+    ["dir", "src", false],
+    ["file", "top.js", null],
+  ]);
+  const root = treeRows(files, "repo", new Set([""]));
+  assert.deepEqual(root.map((r) => r.name), ["repo"]);
+  assert.equal(root[0].open, false);
 });
