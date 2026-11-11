@@ -21,6 +21,9 @@ const { highlight } = makeHighlighter({ exec, settings });
 // The status of a file -> its icon (mod/icons/custom). Untracked files count as new.
 const ICONS = { M: "modified_file", A: "new_file", D: "deleted_file" };
 
+// The core starts terminals with a minimal PATH (no linuxbrew), so nvim is looked for in the usual spots.
+const FIND_NVIM = 'for n in nvim /home/linuxbrew/.linuxbrew/bin/nvim /usr/local/bin/nvim "$HOME/.local/bin/nvim" /usr/bin/nvim /opt/nvim/bin/nvim; do command -v "$n" >/dev/null 2>&1 && exec "$n" "$@"; done; echo "nvim not found: install it, or put it on the PATH the app starts terminals with"; sleep 8';
+
 const POLL_MS = 5000;
 // shortcut: expand-all opens at most this many files, each one is a git diff call; raise it if you need more.
 const EXPAND_MAX = 50;
@@ -120,7 +123,7 @@ export default class GitDiff extends View {
     const loc = this.loc;
     if (!loc) return;
     try {
-      const r = await hc(["run", "--json", "--bg", "--no-parent", "--rm", "--cwd", loc.cwd, ...(loc.on ? ["--on", loc.on] : []), "--", "nvim", path]);
+      const r = await hc(["run", "--json", "--bg", "--no-parent", "--rm", "--cwd", loc.cwd, ...(loc.on ? ["--on", loc.on] : []), "--", "sh", "-c", FIND_NVIM, "sh", path]);
       if (r.code !== 0) throw new Error(r.stderr.trim() || "hc run failed");
       const address = JSON.parse(r.stdout).address;
       openOverlay({ kind: "dialog", modal: true, width: 0.94, height: 0.9, layout: { type: "column", children: [{ type: "block", content: { terminal: address } }] } });
