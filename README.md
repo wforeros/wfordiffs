@@ -95,6 +95,14 @@ copied to the clipboard as `<full path>#L12-L14` (`#L12` for one line), ready to
 the chat with your agent; the header confirms it. Press the **+** of a selected line to
 clear the selection.
 
+## Open in nvim
+
+Each row (except deleted files) has a small nvim icon next to its counts. It runs
+`nvim <path>` in the repo's folder (on the same machine as the repo) in a big dialog over
+the panel; when you quit nvim the dialog closes itself and you are back in Changes. Needs
+`nvim` on the PATH of the terminals Herdr starts there. The icon is Neovim's mark from
+Simple Icons (CC0; the mark is its owners' trademark).
+
 ## Behavior
 
 - git runs where the shown space lives: `on: "wsl"` for the WSL machine.

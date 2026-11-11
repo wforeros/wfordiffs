@@ -3,7 +3,7 @@
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
-import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, props } from "herdr";
+import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, props, hc, run } from "herdr";
 import { selectedRows, reference } from "./ask.js";
 import { ADD_W, NUM_W, SIGN_W, CHAR_W, GUTTER_W } from "./metrics.js";
 import { EMPTY_TREE } from "./parse.js";
@@ -43,7 +43,7 @@ export default class GitDiff extends View {
     this.viewport = 0; // the panel's width, to size each file's bar
     this.base = EMPTY_TREE; this.root = null; this.loc = null; this.fp = ""; this.error = null; this.loading = true; this.busy = false;
     // Selecting lines to reference: sel = { path, from, to } (row indexes of that file's diff).
-    this.sel = null; this.hover = null; this.dragging = false; this.copied = "";
+    this.sel = null; this.hover = null; this.dragging = false; this.flash = ""; // a short message in the header
     this.refresh(cx);
     cx.timer.every(POLL_MS, (cx) => this.refresh(cx));
     // Key commands from keys.json ("herdr-gitdiff.<command>"); they reach this copy only while it's shown.
@@ -108,6 +108,26 @@ export default class GitDiff extends View {
     cx.notify();
   }
 
+  // A short message in the header, gone after a few seconds.
+  say(text, cx) {
+    this.flash = text; cx.notify();
+    cx.timer.after(2500, (cx) => { if (this.flash === text) { this.flash = ""; cx.notify(); } });
+  }
+
+  // nvim on the file, in a big dialog over the panel; it closes itself when nvim exits,
+  // and the Changes view is right there. The terminal is started apart from any pane.
+  async openNvim(path, cx) {
+    const loc = this.loc;
+    if (!loc) return;
+    try {
+      const r = await hc(["run", "--json", "--bg", "--no-parent", "--rm", "--cwd", loc.cwd, ...(loc.on ? ["--on", loc.on] : []), "--", "nvim", path]);
+      if (r.code !== 0) throw new Error(r.stderr.trim() || "hc run failed");
+      const address = JSON.parse(r.stdout).address;
+      openOverlay({ kind: "dialog", modal: true, width: 0.94, height: 0.9, layout: { type: "column", children: [{ type: "block", content: { terminal: address } }] } });
+      try { run("pane.focus", { terminal: address }); } catch { /* the click focuses it */ }
+    } catch (e) { this.say(`Could not open nvim: ${e?.message ?? e}`, cx); }
+  }
+
   // The reference of the selected lines, "<full path>#L1-L3", copied for pasting in the chat.
   copySelection(cx) {
     const s = this.sel, rows = s && this.diffs[s.path];
@@ -115,8 +135,7 @@ export default class GitDiff extends View {
     if (!picked.length) return;
     const ref = reference(`${this.root}/${s.path}`, picked);
     cx.write_to_clipboard(ref);
-    this.copied = ref;
-    cx.timer.after(2500, (cx) => { if (this.copied === ref) { this.copied = ""; cx.notify(); } });
+    this.say(`Copied ${ref}`, cx);
   }
 
   px(n) { return Math.round(n * this.k); }
@@ -132,6 +151,10 @@ export default class GitDiff extends View {
       .child(svg(`mods/herdr-gitdiff/icons/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim))
       .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(14).flex_none().text_color(color).tooltip(icon.replace("_", " ")))
       .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name)))
+      .when(f.status !== "D", (e) => e.child(div().id(`nvim-${f.path}`).w(this.px(20)).h(this.px(20)).flex_none().rounded(4).flex().items_center().justify_center()
+        .cursor_pointer().hover((x) => x.bg(t.hover)).tooltip("Open in nvim")
+        .on_click((_e, cx) => { cx.stop_propagation(); this.openNvim(f.path, cx); })
+        .child(svg("mods/herdr-gitdiff/icons/nvim.svg").size(this.px(13)).text_color(t.muted))))
       .child(f.binary ? div().flex_none().text_size(this.px(11)).text_color(t.dim).child("binary")
         // Close together, like the totals in the header.
         : h_flex().flex_none().gap(6).child(div().text_size(this.px(11)).text_color(added).child(`+${f.add}`)).child(div().text_size(this.px(11)).text_color(removed).child(`−${f.del}`)));
@@ -148,7 +171,7 @@ export default class GitDiff extends View {
       .text_color(t.accent ?? t.muted).font_semibold().tooltip(picked ? "Clear the selection" : "Select this line (drag for several) and copy its reference")
       .on_mouse_down("left", (_e, cx) => {
         // A press on a selected line clears the selection; otherwise it starts one (drag to extend).
-        if (picked) { this.sel = null; this.dragging = false; this.copied = ""; }
+        if (picked) { this.sel = null; this.dragging = false; this.flash = ""; }
         else { this.sel = { path, from: i, to: i }; this.dragging = true; }
         cx.stop_propagation(); cx.notify();
       })
@@ -209,7 +232,7 @@ export default class GitDiff extends View {
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Changes"))
         .child(div().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(`${this.files.length} files`))
-        .when(!!this.copied, (e) => e.child(div().min_w(0).truncate().text_size(10).text_color(this.cfg.added ?? t.ansi2).child(`Copied ${this.copied}`)))
+        .when(!!this.flash, (e) => e.child(div().min_w(0).truncate().text_size(10).text_color(this.cfg.added ?? t.ansi2).child(this.flash)))
         .child(div().flex_1())
         .child(div().id("herdr-gitdiff-config").w(22).h(22).rounded(4).flex().items_center().justify_center().cursor_pointer().hover((s) => s.bg(t.hover))
           .tooltip("Diff colors")
