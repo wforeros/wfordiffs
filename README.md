@@ -73,16 +73,18 @@ The list scrolls down only: the file rows keep their place, and their `+N`/`−N
 counts stay at the right edge whatever a diff below does.
 
 A file that is open and holds a line wider than the panel gets a horizontal bar
-of its own, along the bottom of *that* file. A file whose lines fit gets none,
-and the other files are unaffected. The header's **wrap** button drops all those
+of its own, along the bottom of *that* file: sideways wheel (or shift+wheel, for
+a mouse), drag its thumb, or click the track to jump. A file whose lines fit
+gets none, and the other files are unaffected. A plain vertical wheel always
+scrolls the list: the sideways motion is the mod's own, not a second scroll area
+on top of the list, which made both move at once and the panel drift diagonally. The header's **wrap** button drops all those
 bars and breaks long lines onto more rows instead, keeping their colors; the
 line numbers stay on the first row, and the wrapped rest sits under the text
 with no numbers of its own. The choice is per panel copy, not saved.
 
-Layout notes, if you touch the render: a flex column stretches its children, so
-`w_full` content never overflows (a bar there would find nothing to scroll); and
-in wrap mode the box must be `w_full`, because a width computed from the measured
-viewport leaves that copy stuck on "could not be re-rendered".
+Layout notes, if you touch the render: never nest a second scroll area inside the
+list (that is what made the wheel scroll both axes); the sideways offset is
+applied as a negative left margin on that file's rows, clipped by the box.
 
 ## Behavior
 
