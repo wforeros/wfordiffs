@@ -10,9 +10,15 @@ test("a word longer than the line is cut into chunks; the text is kept whole", (
   assert.ok(out.every((p) => p[1] === "K" && p[2] === true));
 });
 
-test("words that fit, and spaces, are left alone", () => {
+test("a line that fits is one piece: neighbours of one colour are joined, spaces included", () => {
+  assert.deepEqual(breakRuns([["foo", null, false], [" bar  baz", null, false]], 20), [["foo bar  baz", null, false]]);
+  // A colour change still starts a new piece.
+  assert.deepEqual(breakRuns([["foo", "A", false], [" bar", null, false]], 20), [["foo", "A", false], [" bar", null, false]]);
+});
+
+test("a line longer than the line is split at its spaces, not inside its words", () => {
   const out = breakRuns([["foo bar  baz", null, false]], 10);
-  assert.deepEqual(out, [["foo", null, false], [" ", null, false], ["bar", null, false], ["  ", null, false], ["baz", null, false]]);
+  assert.deepEqual(out, [["foo bar  ", null, false], ["baz", null, false]]);
 });
 
 test("a long word inside a piece keeps its neighbours and their colours", () => {

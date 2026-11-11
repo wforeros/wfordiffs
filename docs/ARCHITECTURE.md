@@ -18,6 +18,7 @@ mod/ask.js       pure: selected rows -> "<path>#L1-L3" reference
 mod/tree.js      pure: changed files -> folder and file rows for the tree view
 mod/metrics.js    gutter widths and the per-character width estimate
 mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
+mod/sides.js      pure: a diff's rows -> pairs (old line left, new line right) for the split view
 tests/            node:test, one file per module (npm test)
 ```
 
@@ -43,6 +44,16 @@ the panel gets its own horizontal bar.
   would run off to the right, out of sight.
 - `overflow_scrollbar()` leaves the panel stuck on "could not be re-rendered"; the list uses
   one overflow area plus one `Scrollbar` instead.
+
+## The split view
+
+The header's **split** button (`this.side`) shows each diff as pairs: the old file on the left, the new
+one on the right (`pairSides` in `sides.js`). A change pairs its removed lines with its added ones in order;
+the side that runs out first is left empty. Both halves are in the same row, so they scroll down together;
+the sideways offset is one per file (`hscroll`), shared by both halves, each half a clip of its own.
+`wrap` applies to both halves at once, and a pair is as tall as its taller side.
+
+Shortcut: the split rows have no "+" to select a line for its reference (the list view keeps it).
 
 ## The tree column
 

@@ -1,16 +1,17 @@
 // Changes panel: the changed files, each one opens inline into its diff
 // (line numbers, +/- tints, syntax colors). It discards unstaged changes (after a confirm); no commits, no branches.
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
-import { View, div, svg } from "gpui-kit";
+import { View, div, svg, PathBuilder, Background } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
 import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, closeOverlay, notify, props, hc, run } from "herdr";
 import { selectedRows, reference } from "./ask.js";
-import { ADD_W, NUM_W, SIGN_W, CHAR_W, GUTTER_W, PAD_L } from "./metrics.js";
+import { ADD_W, NUM_W, CHAR_W, GUTTER_W, PAD_L } from "./metrics.js";
 import { EMPTY_TREE } from "./parse.js";
 import { langOf, tokens } from "./lexer.js";
 import { makeGit, msg } from "./git.js";
 import { markWords, splitMarks } from "./inline.js";
 import { breakRuns, wrapChars } from "./wrap.js";
+import { pairSides } from "./sides.js";
 import { parseConfig, tint, DEFAULTS, CFG_KEY } from "./config.js";
 import { settingsView } from "./settings-view.js";
 import { discardView } from "./discard-view.js";
@@ -28,6 +29,8 @@ const ICONS = { M: "modified_file", A: "new_file", D: "deleted_file" };
 const FIND_NVIM = 'for n in nvim /home/linuxbrew/.linuxbrew/bin/nvim /usr/local/bin/nvim "$HOME/.local/bin/nvim" /usr/bin/nvim /opt/nvim/bin/nvim; do command -v "$n" >/dev/null 2>&1 && exec "$n" "$@"; done; echo "nvim not found: install it, or put it on the PATH the app starts terminals with"; sleep 8';
 
 const POLL_MS = 5000;
+// A layer over the whole parent (see splitRow): the empty half of a side-by-side row is hatched.
+const RECT = () => PathBuilder.fill().move_to("0%", "0%").line_to("100%", "0%").line_to("100%", "100%").line_to("0%", "100%").close().build();
 // The tree column's share of the body when the tree is on, kept between these by the divider.
 const SPLIT_MIN = 0.2, SPLIT_MAX = 0.8;
 // How far each level of the tree is pushed right, in px at 12px. A row's first 12px are its
@@ -50,6 +53,9 @@ export default class GitDiff extends View {
     if (props()?.settings) return; // the gear window: it only draws the settings
     if (props()?.discard) { this.busy = false; this.err = null; return; } // the confirm dialog of a discard
     this.wrap = false; // off: one row per line and a horizontal bar; on: long lines break
+    this.viewport = 0; // the list's width in px, once measured (wrap cuts its code to it)
+    // On: each diff shows the old file on the left and the new one on the right (sides.js).
+    this.side = false;
     // On: the files show as a tree (folders with changes, then their files) in a column on the right.
     this.tree = false;
     this.folded = new Set(); // the tree's folders that are collapsed, by path ("" is the root)
@@ -281,11 +287,78 @@ export default class GitDiff extends View {
     return Math.ceil(Math.max(2 * (digits + 1) * cw + 6 * this.k, 6 * cw));
   }
 
+  // The code of one line, as its tokens in their colours. base: the line's +/- colour (null: a context line),
+  // which tints the words that changed inside it, a stronger tint than the line's own.
+  // cols: how many of these share the column's width (2 in the split view: one per side).
+  codeText(row, path, t, base, cols = 1) {
+    const wordBg = base ? tint(base, this.cfg.word) : null;
+    const colors = { dim: t.dim, ansi1: t.ansi1, ansi2: t.ansi2, ansi4: t.ansi4, ansi5: t.ansi5 };
+    // shortcut: a piece without text (not from bat or the lexer) is dropped; a row with none is shown plain.
+    const raw = row.pieces ?? tokens(row.text, langOf(path), colors);
+    const pieces = raw.filter((p) => Array.isArray(p) && typeof p[0] === "string");
+    if (!pieces.length && row.text) pieces.push([row.text, null]);
+    // In wrap mode a word longer than a line is cut into pieces that fit (see wrap.js).
+    const cut = splitMarks(pieces, row.marks);
+    const code = h_flex().children((this.wrap ? breakRuns(cut, wrapChars(this.viewport / cols, this.k)) : cut).map(([s, c, hit]) => div().text_color(c ?? t.foreground)
+      .when(hit, (e) => e.bg(wordBg).rounded(2)).when(this.wrap, (e) => e.whitespace_normal()).child(s)));
+    // Wrap: the row grows taller and the tokens break at their own gaps. Otherwise it keeps
+    // the widest row's width, and the list scrolls sideways.
+    return this.wrap ? code.flex_1().min_w(0).flex_wrap().whitespace_normal().py(1) : code.flex_none();
+  }
+
+  // Side by side (sides.js): a line of the old file on the left, of the new one on the right, in the
+  // same row, so the two sides scroll down together. Each half is a clip of its own; `off` moves both
+  // the same way (hscroll.js).
+  // shortcut: a side-by-side row has no "+" to select a line for its reference; the list view still has it.
+  splitRow(r, g, t, off) {
+    if (r.kind === "@") return div().h(this.px(22)).w_full().px(10).flex().items_center().bg(t.raised).text_color(t.dim).truncate().child(r.text);
+    if (r.kind === "sides") return h_flex().w_full().h(this.px(22)).items_center().bg(t.raised).text_size(this.px(10)).text_color(t.dim)
+      .child(div().flex_1().min_w(0).pl(this.px(PAD_L)).truncate().child("Before"))
+      .child(div().flex_1().min_w(0).pl(this.px(PAD_L)).truncate().border_l(1).border_color(t.border).child("After"));
+    const added = this.cfg.added ?? t.ansi2, removed = this.cfg.removed ?? t.ansi1;
+    // One half: a line (or nothing, where the other side has more lines) with its number and sign.
+    const half = (row, num, right) => {
+      const base = row?.kind === "+" ? added : row?.kind === "-" ? removed : null;
+      // A side with a line is opaque (its tint is laid over the background), so the hatching under the
+      // diff shows only on an empty side.
+      const bg = row ? t.background : null, tinted = base ? tint(base, this.cfg.line) : null;
+      const line = h_flex().flex_1().min_w(0).when(!!row, (e) => e.pl(this.px(PAD_L))).when(off > 0, (e) => e.ml(-off)).when(!!tinted, (e) => e.bg(tinted))
+        .when(this.wrap, (e) => e.min_h(this.px(20)).items_stretch()).when(!this.wrap, (e) => e.h(this.px(20)).items_center())
+        // An empty side has no line: a block in the hatching's colour, from the side's left edge to where
+        // the numbers sit, so nothing hatched shows to its left.
+        .child(row
+          ? div().w(this.px(NUM_W)).flex_none().text_right().pr(4).when(this.wrap, (e) => e.py(1)).text_color(base ?? t.dim).child(num ?? "")
+          // A strip of the background between the block and the hatching (opaque, so the hatching stops there).
+          : h_flex().flex_none().items_stretch().when(!this.wrap, (e) => e.h_full())
+            .child(div().w(this.px(PAD_L + NUM_W)).when(!this.wrap, (e) => e.h_full()).bg(t.dim))
+            .child(div().w(this.px(4)).when(!this.wrap, (e) => e.h_full()).bg(t.background)))
+        .child(row ? this.codeText(row, g.file.path, t, base, 2) : div());
+      return h_flex().flex_1().min_w(0).relative().overflow_hidden().items_stretch().when(bg, (e) => e.bg(bg)).when(right, (e) => e.border_l(1).border_color(t.border))
+        .child(this.bar(base))
+        .child(line);
+    };
+    return h_flex().w_full().items_stretch()
+      .child(half(r.left, r.left?.o, false))
+      .child(half(r.right, r.right?.n, true));
+  }
+
+  // The bar at a changed line's left edge: 3px, in the change's full colour.
+  // The bar at a changed line's left edge: 3px, in the full colour of its change. A plain box in the row
+  // (not absolute), so it spans the row's height in wrap and without it. A context line: no colour.
+  bar(color) {
+    return div().w(this.px(3)).flex_none().when(!this.wrap, (e) => e.h_full()).when(!!color, (e) => e.bg(color));
+  }
+
+  // The thin grey diagonals of the empty sides, one period (px(14)) apart: one layer over the diff,
+  // under its rows, so they run on from row to row.
+  hatch(t, height) {
+    return window.paint_path(RECT(), Background.pattern_slash(t.dim, 1, this.px(14))).absolute().top(0).left(0).w_full().h(height);
+  }
+
   codeRow(row, path, t, width, i, col = "") {
     if (row.kind === "@") return div().h(this.px(22)).w_full().px(10).flex().items_center().bg(t.raised).text_color(t.dim).truncate().child(row.text);
     const base = row.kind === "+" ? this.cfg.added ?? t.ansi2 : row.kind === "-" ? this.cfg.removed ?? t.ansi1 : null;
-    const lineBg = base ? tint(base, this.cfg.line) : null, wordBg = base ? tint(base, this.cfg.word) : null;
-    const mark = base ?? t.dim;
+    const lineBg = base ? tint(base, this.cfg.line) : null;
     const key = `${col}${path}#${i}`;
     const s = this.sel, picked = s?.path === path && i >= Math.min(s.from, s.to) && i <= Math.max(s.from, s.to);
     const plus = div().id(`add-${key}`).w(this.px(ADD_W)).flex_none().flex().items_center().justify_center().cursor_pointer()
@@ -297,16 +370,7 @@ export default class GitDiff extends View {
         cx.stop_propagation(); cx.notify();
       })
       .child(picked || this.hover === key ? "+" : "");
-    const colors = { dim: t.dim, ansi1: t.ansi1, ansi2: t.ansi2, ansi4: t.ansi4, ansi5: t.ansi5 };
-    const pieces = row.pieces ?? tokens(row.text, langOf(path), colors);
-    // The words that changed inside the line get a stronger tint of their own.
-    // In wrap mode a word longer than a line is cut into pieces that fit (see wrap.js).
-    const cut = splitMarks(pieces, row.marks);
-    const code = h_flex().children((this.wrap ? breakRuns(cut, wrapChars(this.viewport, this.k)) : cut).map(([s, c, hit]) => div().text_color(c ?? t.foreground)
-      .when(hit, (e) => e.bg(wordBg).rounded(2)).when(this.wrap, (e) => e.whitespace_normal()).child(s)));
-    // Wrap: the row grows taller and the tokens break at their own gaps. Otherwise it keeps
-    // the widest row's width, and the list scrolls sideways.
-    const body = this.wrap ? code.flex_1().min_w(0).flex_wrap().whitespace_normal() : code.flex_none();
+    const body = this.codeText(row, path, t, base);
     // Wrapped rows line up on their first line: the numbers sit at the top, not centred
     // against the whole wrapped block.
     return h_flex().id(`row-${key}`).w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).bg(picked ? t.selected : lineBg ?? t.background)
@@ -317,14 +381,16 @@ export default class GitDiff extends View {
         } else if (this.hover === key) this.hover = null;
         cx.notify();
       })
-      .when(this.wrap, (e) => e.min_h(this.px(20)).py(1).items_start()).when(!this.wrap, (e) => e.h(this.px(20)).items_center())
-      // The gutter starts at the chevron's inset (PAD_L), so the numbers line up under it.
-      .pl(this.px(PAD_L))
+      .when(this.wrap, (e) => e.min_h(this.px(20)).items_stretch()).when(!this.wrap, (e) => e.h(this.px(20)).items_center())
+      // The bar at the row's left edge (a changed line's; a context line keeps the space), then the
+      // gutter, which starts at the chevron's inset (PAD_L) so the numbers line up under it.
+      .child(this.bar(base))
+      .child(div().w(this.px(PAD_L - 3)).flex_none())
       // shortcut: the gutter fits three digits; a four-digit line number in a big file is clipped.
-      .child(div().w(this.px(NUM_W)).flex_none().text_right().pr(4).text_color(t.dim).child(row.o ?? ""))
-      .child(div().w(this.px(NUM_W)).flex_none().text_right().pr(4).text_color(t.dim).child(row.n ?? ""))
+      // A changed line's numbers take its colour, as its bar does.
+      .child(div().w(this.px(NUM_W)).flex_none().text_right().pr(4).when(this.wrap, (e) => e.py(1)).text_color(base ?? t.dim).child(row.o ?? ""))
+      .child(div().w(this.px(NUM_W)).flex_none().text_right().pr(4).when(this.wrap, (e) => e.py(1)).text_color(base ?? t.dim).child(row.n ?? ""))
       .child(plus)
-      .child(div().w(this.px(SIGN_W)).flex_none().text_color(mark).child(row.kind === " " ? "" : row.kind))
       .child(body);
   }
 
@@ -342,6 +408,8 @@ export default class GitDiff extends View {
       if (!body) return { ...e, body: [{ kind: "@", text: "Loading…" }], width: 0, id: `gv-${i}` };
       // What the widest row needs: the gutters, then the text.
       const width = Math.max(...body.map((r) => r.text.length * CHAR_W * this.k + GUTTER_W * this.k), 0);
+      // Side by side, the body is its pairs, under a row naming the two sides.
+      if (this.side) return { ...e, body: [{ kind: "sides" }, ...pairSides(body)], width, split: true, id: `gv-${i}` };
       return { ...e, body, width, id: `gv-${i}` };
     });
   }
@@ -384,6 +452,10 @@ export default class GitDiff extends View {
         .child(div().id("herdr-gitdiff-wrap").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .when(this.wrap, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.wrap, (e) => e.text_color(t.muted))
           .on_click((_e, cx) => { this.wrap = !this.wrap; cx.notify(); }).child("wrap"))
+        .child(div().id("herdr-gitdiff-side").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
+          .tooltip("Before on the left, after on the right")
+          .when(this.side, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.side, (e) => e.text_color(t.muted))
+          .on_click((_e, cx) => { this.side = !this.side; cx.notify(); }).child("split"))
         .child(div().id("herdr-gitdiff-tree").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .tooltip("Show the changed folders as a tree, on the right")
           .when(this.tree, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.tree, (e) => e.text_color(t.muted))
@@ -449,6 +521,8 @@ export default class GitDiff extends View {
   // leaves this panel stuck on "could not be re-rendered".
   area(id, groups, t, basis) {
     const width = this.widths[id] ?? 0;
+    // The width the wrapped code is cut to (wrap.js); the tree shows no code, so it never sets it.
+    if (width && id === "herdr-gitdiff-list") this.viewport = width;
     // The open diffs' sideways offsets are kept per column: the same file can show in both.
     const rows = groups.map((g) => (g.body ? { ...g, id: `${id}-${g.id}` } : g));
     return div().min_w(0).min_h(0).relative()

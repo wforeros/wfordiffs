@@ -79,6 +79,10 @@ The header's **wrap** button drops the bars and breaks long lines onto more rows
 keeping their colors; the line numbers stay on the first row. The choice is per panel copy,
 not saved.
 
+The header's **split** button shows each diff side by side: the old file on the left (*Before*),
+the new one on the right (*After*). A changed line sits across from its replacement; a side with no line there is hatched with thin grey diagonals. Both sides scroll
+together, down and sideways, and **wrap** applies to both. It is off by default and, like wrap, is not saved.
+
 The header's **tree** button adds a column on the right of the list: the same changes, as a tree
 (each folder that holds a change and the files under it; a vertical line runs from each
 folder's chevron down to its last row). Each folder has a chevron to fold or unfold its contents; files show just their icon,

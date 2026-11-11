@@ -10,15 +10,32 @@ export function wrapChars(viewport, k) {
   return Math.max(8, Math.floor(room / (CHAR_W * k)) - 2);
 }
 
-// [text, color, marked] pieces -> the same pieces, with each run of non-space text longer
-// than `max` cut into chunks of at most `max` characters (colour and mark kept).
+// [text, color, marked] pieces -> pieces the wrapped row lays out as flex items. Neighbours with the same
+// colour and mark are joined, so the text is laid out in long runs (one word and one space per item made
+// the glyphs and the gaps between them look different from the unwrapped row). A run longer than `max`
+// is split at its spaces into chunks of at most `max` characters; a word longer than that is cut.
 export function breakRuns(pieces, max) {
-  const out = [];
+  const runs = [];
   for (const [s, c, hit] of pieces) {
-    for (const run of s.match(/\s+|\S+/g) ?? []) {
-      if (/\s/.test(run) || run.length <= max) { out.push([run, c, hit]); continue; }
-      for (let i = 0; i < run.length; i += max) out.push([run.slice(i, i + max), c, hit]);
+    if (!s) continue;
+    const last = runs.at(-1);
+    if (last && last[1] === c && last[2] === hit) last[0] += s;
+    else runs.push([s, c, hit]);
+  }
+  const out = [];
+  for (const [s, c, hit] of runs) {
+    if (s.length <= max) { out.push([s, c, hit]); continue; }
+    let cur = "";
+    for (const word of s.match(/\s+|\S+/g) ?? []) {
+      if (word.length > max) {
+        if (cur) { out.push([cur, c, hit]); cur = ""; }
+        for (let i = 0; i < word.length; i += max) out.push([word.slice(i, i + max), c, hit]);
+        continue;
+      }
+      if (cur && cur.length + word.length > max) { out.push([cur, c, hit]); cur = ""; }
+      cur += word;
     }
+    if (cur) out.push([cur, c, hit]);
   }
   return out;
 }
