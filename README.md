@@ -75,8 +75,9 @@ counts stay at the right edge whatever a diff below does.
 A file that is open and holds a line wider than the panel gets a horizontal bar
 of its own, along the bottom of *that* file. A file whose lines fit gets none,
 and the other files are unaffected. The header's **wrap** button drops all those
-bars and breaks long lines onto more rows instead, keeping their colors. The
-choice is per panel copy, not saved.
+bars and breaks long lines onto more rows instead, keeping their colors; the
+line numbers stay on the first row, and the wrapped rest sits under the text
+with no numbers of its own. The choice is per panel copy, not saved.
 
 Layout notes, if you touch the render: a flex column stretches its children, so
 `w_full` content never overflows (a bar there would find nothing to scroll); and
