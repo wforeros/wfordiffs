@@ -69,16 +69,19 @@ person's `keys.json` (and in tmux-prefix). See the `dots` repo's `herdr/app`.
 
 ## Long lines
 
-The list scrolls on both axes: a vertical bar on the right, and a horizontal
-one along the bottom, always visible (a track, with the thumb sized to the
-content). The header's **wrap** button trades it for breaking: long lines wrap
-onto more rows, keeping their colors, and the bottom bar goes away. The choice
-is per panel copy, not saved.
+The list scrolls down only: the file rows keep their place, and their `+N`/`−N`
+counts stay at the right edge whatever a diff below does.
 
-Two layout notes, if you touch the render: the content is as wide as the widest
-row (a flex column stretches its children, so `w_full` alone never overflows and
-the horizontal bar would find nothing to scroll); and mix `w_full` for wrap with
-a plain width for no-wrap, because a computed width in wrap mode fails to render.
+A file that is open and holds a line wider than the panel gets a horizontal bar
+of its own, along the bottom of *that* file. A file whose lines fit gets none,
+and the other files are unaffected. The header's **wrap** button drops all those
+bars and breaks long lines onto more rows instead, keeping their colors. The
+choice is per panel copy, not saved.
+
+Layout notes, if you touch the render: a flex column stretches its children, so
+`w_full` content never overflows (a bar there would find nothing to scroll); and
+in wrap mode the box must be `w_full`, because a width computed from the measured
+viewport leaves that copy stuck on "could not be re-rendered".
 
 ## Behavior
 
@@ -98,6 +101,9 @@ a plain width for no-wrap, because a computed width in wrap mode fails to render
 - No virtual list: very large diffs render every row.
 - Wrap breaks between tokens: a single very long token (a minified line, a long
   URL) still needs the horizontal bar.
+- Whether a file needs its bar is estimated from its longest line (9.6 px per
+  character), not measured, so the bar can appear on a file that just fits, or
+  late on one that doesn't, when the font or zoom changes.
 - Spaces on Windows (no `wsl` machine) would run git on Windows; not tested.
 
 ## Tests
