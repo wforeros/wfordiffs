@@ -84,7 +84,7 @@ Inside a changed line, the exact words that changed get a stronger tint than the
 the line (a `−` row followed by a `+` row are compared word by word; lines that share
 almost nothing are left as a whole-line change). The **gear** in the header opens a small window to pick the green and the red from a
 palette (or keep the theme's) and set how strong the line and the word tints are, with a
-live preview; the diffs behind it update as you click. Herdr saves the choice (`shared`),
+live preview; it also sets the **font size** of the panel (9 to 24 px, default 12): rows, gutters and counts scale with it; the diffs behind it update as you click. Herdr saves the choice (`shared`),
 and **Reset** returns to the defaults.
 
 ## Behavior

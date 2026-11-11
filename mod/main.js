@@ -34,7 +34,7 @@ function location() {
 export default class GitDiff extends View {
   init(_props, cx) {
     this.files = []; this.open = new Set(); this.diffs = {};
-    this.cfg = { ...DEFAULTS }; // tint colors and strengths, from shared(); set in the gear window
+    this.cfg = { ...DEFAULTS }; this.k = 1; // tint colors and strengths, from shared(); set in the gear window
     if (props()?.settings) return; // the gear window: it only draws the settings
     this.wrap = false; // off: one row per line and a horizontal bar; on: long lines break
     this.offsets = {}; // per file id: sideways offset in pixels
@@ -105,24 +105,26 @@ export default class GitDiff extends View {
     cx.notify();
   }
 
+  px(n) { return Math.round(n * this.k); }
+
   // Full width, so the counts stay at the right edge whatever a diff below does.
   fileRow(f, t) {
     const open = this.open.has(f.path), parts = f.path.split("/"), name = parts.pop();
     const added = this.cfg.added ?? t.ansi2, removed = this.cfg.removed ?? t.ansi1;
     const icon = ICONS[f.status] ?? ICONS.M;
     const color = f.status === "A" ? added : f.status === "D" ? removed : this.cfg.modified ?? t.blocked;
-    return h_flex().id(`f-${f.path}`).w_full().h(28).px(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
+    return h_flex().id(`f-${f.path}`).w_full().h(this.px(28)).px(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => this.toggle(f.path, cx))
       .child(svg(`mods/herdr-gitdiff/icons/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim))
       .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(14).flex_none().text_color(color).tooltip(icon.replace("_", " ")))
       .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name)))
-      .child(f.binary ? div().flex_none().text_size(11).text_color(t.dim).child("binary")
+      .child(f.binary ? div().flex_none().text_size(this.px(11)).text_color(t.dim).child("binary")
         // Close together, like the totals in the header.
-        : h_flex().flex_none().gap(6).child(div().text_size(11).text_color(added).child(`+${f.add}`)).child(div().text_size(11).text_color(removed).child(`−${f.del}`)));
+        : h_flex().flex_none().gap(6).child(div().text_size(this.px(11)).text_color(added).child(`+${f.add}`)).child(div().text_size(this.px(11)).text_color(removed).child(`−${f.del}`)));
   }
 
   codeRow(row, path, t, width) {
-    if (row.kind === "@") return div().h(22).w_full().px(10).flex().items_center().bg(t.raised).text_color(t.dim).truncate().child(row.text);
+    if (row.kind === "@") return div().h(this.px(22)).w_full().px(10).flex().items_center().bg(t.raised).text_color(t.dim).truncate().child(row.text);
     const base = row.kind === "+" ? this.cfg.added ?? t.ansi2 : row.kind === "-" ? this.cfg.removed ?? t.ansi1 : null;
     const lineBg = base ? tint(base, this.cfg.line) : null, wordBg = base ? tint(base, this.cfg.word) : null;
     const mark = base ?? t.dim;
@@ -137,11 +139,11 @@ export default class GitDiff extends View {
     // Wrapped rows line up on their first line: the numbers sit at the top, not centred
     // against the whole wrapped block.
     return h_flex().w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).bg(lineBg ?? t.background)
-      .when(this.wrap, (e) => e.min_h(20).py(1).items_start()).when(!this.wrap, (e) => e.h(20).items_center())
+      .when(this.wrap, (e) => e.min_h(this.px(20)).py(1).items_start()).when(!this.wrap, (e) => e.h(this.px(20)).items_center())
       // shortcut: the gutter fits three digits; a four-digit line number in a big file is clipped.
-      .child(div().w(NUM_W).flex_none().text_right().pr(4).text_color(t.dim).child(row.o ?? ""))
-      .child(div().w(NUM_W).flex_none().text_right().pr(4).text_color(t.dim).child(row.n ?? ""))
-      .child(div().w(SIGN_W).flex_none().text_color(mark).child(row.kind === " " ? "" : row.kind))
+      .child(div().w(this.px(NUM_W)).flex_none().text_right().pr(4).text_color(t.dim).child(row.o ?? ""))
+      .child(div().w(this.px(NUM_W)).flex_none().text_right().pr(4).text_color(t.dim).child(row.n ?? ""))
+      .child(div().w(this.px(SIGN_W)).flex_none().text_color(mark).child(row.kind === " " ? "" : row.kind))
       .child(body);
   }
 
@@ -153,7 +155,7 @@ export default class GitDiff extends View {
       const body = this.diffs[f.path];
       if (!body) return { file: f, body: [{ kind: "@", text: "Loading…" }], width: 0, id: `gv-${i}` };
       // What the widest row needs: the gutters, then the text.
-      const width = Math.max(...body.map((r) => r.text.length * CHAR_W + GUTTER_W), 0);
+      const width = Math.max(...body.map((r) => r.text.length * CHAR_W * this.k + GUTTER_W * this.k), 0);
       return { file: f, body, width, id: `gv-${i}` };
     });
   }
@@ -161,24 +163,25 @@ export default class GitDiff extends View {
   render(cx) {
     const t = theme();
     this.cfg = parseConfig(shared(CFG_KEY));
+    this.k = this.cfg.font / DEFAULTS.font; // every size below was designed at 12px
     if (props()?.settings) return settingsView(t, this.cfg);
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
     const groups = this.groups();
     const empty = this.error || (this.loading ? "Loading changes…" : this.root ? "No changes" : "No folder");
-    return v_flex().id("herdr-gitdiff").size_full().on_size_change((size, cx) => { if (size.width !== this.viewport) { this.viewport = size.width; cx.notify(); } }).min_h(0).bg(t.background).text_color(t.foreground).text_size(12).font_family(settings().font_family ?? "JetBrains Mono")
+    return v_flex().id("herdr-gitdiff").size_full().on_size_change((size, cx) => { if (size.width !== this.viewport) { this.viewport = size.width; cx.notify(); } }).min_h(0).bg(t.background).text_color(t.foreground).text_size(this.cfg.font).font_family(settings().font_family ?? "JetBrains Mono")
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Changes"))
         .child(div().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(`${this.files.length} files`))
         .child(div().flex_1())
         .child(div().id("herdr-gitdiff-config").w(22).h(22).rounded(4).flex().items_center().justify_center().cursor_pointer().hover((s) => s.bg(t.hover))
           .tooltip("Diff colors")
-          .on_click(() => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 470, props: { settings: true } }))
+          .on_click(() => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 510, props: { settings: true } }))
           .child(svg("mods/herdr-gitdiff/icons/settings.svg").size(14).text_color(t.muted)))
         .child(div().id("herdr-gitdiff-wrap").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .when(this.wrap, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.wrap, (e) => e.text_color(t.muted))
           .on_click((_e, cx) => { this.wrap = !this.wrap; cx.notify(); }).child("wrap"))
-        .child(div().text_size(11).text_color(this.cfg.added ?? t.ansi2).child(`+${add}`))
-        .child(div().text_size(11).text_color(this.cfg.removed ?? t.ansi1).child(`−${del}`)))
+        .child(div().text_size(this.px(11)).text_color(this.cfg.added ?? t.ansi2).child(`+${add}`))
+        .child(div().text_size(this.px(11)).text_color(this.cfg.removed ?? t.ansi1).child(`−${del}`)))
       .child(div().flex_1().min_h(0).relative()
         .when(!this.files.length, (e) => e.child(div().p(12).text_color(t.dim).child(empty)))
         .when(this.files.length > 0, (e) => e

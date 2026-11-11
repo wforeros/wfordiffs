@@ -4,7 +4,7 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { setShared, closeOverlay, props } from "herdr";
-import { CFG_KEY, DEFAULTS, tint, stepAmount } from "./config.js";
+import { CFG_KEY, DEFAULTS, FONT_MIN, FONT_MAX, tint, stepAmount } from "./config.js";
 
 const GREENS = ["#a6e3a1", "#7ee787", "#56d364", "#2ea043", "#40c057", "#00d084"];
 const AMBERS = ["#f9e2af", "#e3b341", "#d29922", "#fab387", "#ffa657", "#bf8700"];
@@ -34,6 +34,14 @@ export function settingsView(t, cfg) {
       .child(btn("less", "−", -1)).child(div().w(40).text_center().child(`${Math.round(cfg[key] * 100)}%`)).child(btn("more", "+", 1));
   };
 
+  const fontStep = (dir) => Math.min(FONT_MAX, Math.max(FONT_MIN, cfg.font + dir));
+  const fontRow = () => {
+    const btn = (id, sign, dir) => div().id(`font-${id}`).w(24).h(24).rounded(5).border_1().border_color(t.border).flex().items_center().justify_center()
+      .cursor_pointer().hover((s) => s.bg(t.hover)).on_click((_e, cx) => set({ font: fontStep(dir) }, cx)).child(sign);
+    return h_flex().items_center().gap(8).child(div().w(70).text_color(t.muted).text_size(11).child("Font size"))
+      .child(btn("less", "−", -1)).child(div().w(40).text_center().child(`${cfg.font}px`)).child(btn("more", "+", 1));
+  };
+
   // A changed line as it will look: the rest of the line tinted, the changed word stronger.
   const sample = (kind, color, word) => {
     const sign = kind === "+" ? "+" : "−";
@@ -53,7 +61,7 @@ export function settingsView(t, cfg) {
     .child(palette("Added", "added", GREENS, t.ansi2))
     .child(palette("Removed", "removed", REDS, t.ansi1))
     .child(palette("Modified", "modified", AMBERS, t.blocked))
-    .child(v_flex().gap(8).child(stepper("Line tint", "line")).child(stepper("Word tint", "word")))
+    .child(v_flex().gap(8).child(stepper("Line tint", "line")).child(stepper("Word tint", "word")).child(fontRow()))
     .child(v_flex().rounded(5).overflow_hidden().border_1().border_color(t.border).child(sample("-", removed, "42")).child(sample("+", added, "43")))
     .child(div().id("cfg-reset").self_start().px(8).py(3).rounded(5).border_1().border_color(t.border).cursor_pointer().hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => { setShared(CFG_KEY, { ...DEFAULTS }); cx.notify(); }).child("Reset"));
