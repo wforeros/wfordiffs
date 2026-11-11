@@ -16,6 +16,7 @@ mod/settings-view.js  the gear window: palette, steppers, preview (same mod, pro
 mod/ask.js       pure: selected rows -> "<path>#L1-L3" reference
 mod/tree.js      pure: changed files -> folder and file rows for the tree view
 mod/metrics.js    gutter widths and the per-character width estimate
+mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
 tests/            node:test, one file per module (npm test)
 ```
 
@@ -36,7 +37,9 @@ the panel gets its own horizontal bar.
   Only the thumb's share is computed, from the panel's width (`on_size_change`).
 - Whether a file needs a bar is estimated from its longest line (`CHAR_W` in `metrics.js`),
   not measured.
-- `wrap` drops the bars and lets long lines break between tokens.
+- `wrap` drops the bars and lets long lines break between tokens. A word with no gap in it
+  (a long string, a URL) is cut into chunks that fit a line first (`wrap.js`); otherwise it
+  would run off to the right, out of sight.
 - `overflow_scrollbar()` leaves the panel stuck on "could not be re-rendered"; the list uses
   one overflow area plus one `Scrollbar` instead.
 

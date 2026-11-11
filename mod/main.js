@@ -5,11 +5,12 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
 import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, props, hc, run } from "herdr";
 import { selectedRows, reference } from "./ask.js";
-import { ADD_W, NUM_W, SIGN_W, CHAR_W, GUTTER_W } from "./metrics.js";
+import { ADD_W, NUM_W, SIGN_W, CHAR_W, GUTTER_W, PAD_L } from "./metrics.js";
 import { EMPTY_TREE } from "./parse.js";
 import { langOf, tokens } from "./lexer.js";
 import { makeGit, msg } from "./git.js";
 import { markWords, splitMarks } from "./inline.js";
+import { breakRuns, wrapChars } from "./wrap.js";
 import { parseConfig, tint, DEFAULTS, CFG_KEY } from "./config.js";
 import { settingsView } from "./settings-view.js";
 import { hscroll } from "./hscroll.js";
@@ -233,7 +234,9 @@ export default class GitDiff extends View {
     const colors = { dim: t.dim, ansi1: t.ansi1, ansi2: t.ansi2, ansi4: t.ansi4, ansi5: t.ansi5 };
     const pieces = row.pieces ?? tokens(row.text, langOf(path), colors);
     // The words that changed inside the line get a stronger tint of their own.
-    const code = h_flex().children(splitMarks(pieces, row.marks).map(([s, c, hit]) => div().text_color(c ?? t.foreground)
+    // In wrap mode a word longer than a line is cut into pieces that fit (see wrap.js).
+    const cut = splitMarks(pieces, row.marks);
+    const code = h_flex().children((this.wrap ? breakRuns(cut, wrapChars(this.viewport, this.k)) : cut).map(([s, c, hit]) => div().text_color(c ?? t.foreground)
       .when(hit, (e) => e.bg(wordBg).rounded(2)).when(this.wrap, (e) => e.whitespace_normal()).child(s)));
     // Wrap: the row grows taller and the tokens break at their own gaps. Otherwise it keeps
     // the widest row's width, and the list scrolls sideways.
@@ -249,10 +252,12 @@ export default class GitDiff extends View {
         cx.notify();
       })
       .when(this.wrap, (e) => e.min_h(this.px(20)).py(1).items_start()).when(!this.wrap, (e) => e.h(this.px(20)).items_center())
+      // The gutter starts at the chevron's inset (PAD_L), so the numbers line up under it.
+      .pl(this.px(PAD_L))
       // shortcut: the gutter fits three digits; a four-digit line number in a big file is clipped.
-      .child(plus)
       .child(div().w(this.px(NUM_W)).flex_none().text_right().pr(4).text_color(t.dim).child(row.o ?? ""))
       .child(div().w(this.px(NUM_W)).flex_none().text_right().pr(4).text_color(t.dim).child(row.n ?? ""))
+      .child(plus)
       .child(div().w(this.px(SIGN_W)).flex_none().text_color(mark).child(row.kind === " " ? "" : row.kind))
       .child(body);
   }
