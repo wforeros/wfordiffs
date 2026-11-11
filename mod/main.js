@@ -35,7 +35,7 @@ export default class GitDiff extends View {
     this.base = EMPTY_TREE; this.root = null; this.loc = null; this.fp = ""; this.error = null; this.loading = true; this.busy = false;
     this.refresh(cx);
     cx.timer.every(POLL_MS, (cx) => this.refresh(cx));
-    // Key commands from keys.json ("gitdiff.<command>"); they reach this copy only while it's shown.
+    // Key commands from keys.json ("herdr-gitdiff.<command>"); they reach this copy only while it's shown.
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
@@ -148,12 +148,12 @@ export default class GitDiff extends View {
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
     const groups = this.groups();
     const empty = this.error || (this.loading ? "Loading changes…" : this.root ? "No changes" : "No folder");
-    return v_flex().id("gitdiff").size_full().on_size_change((size, cx) => { if (size.width !== this.viewport) { this.viewport = size.width; cx.notify(); } }).min_h(0).bg(t.background).text_color(t.foreground).text_size(12).font_family(settings().font_family ?? "JetBrains Mono")
+    return v_flex().id("herdr-gitdiff").size_full().on_size_change((size, cx) => { if (size.width !== this.viewport) { this.viewport = size.width; cx.notify(); } }).min_h(0).bg(t.background).text_color(t.foreground).text_size(12).font_family(settings().font_family ?? "JetBrains Mono")
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Changes"))
         .child(div().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(`${this.files.length} files`))
         .child(div().flex_1())
-        .child(div().id("gitdiff-wrap").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
+        .child(div().id("herdr-gitdiff-wrap").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .when(this.wrap, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.wrap, (e) => e.text_color(t.muted))
           .on_click((_e, cx) => { this.wrap = !this.wrap; cx.notify(); }).child("wrap"))
         .child(div().text_size(11).text_color(t.ansi2).child(`+${add}`))
@@ -165,8 +165,8 @@ export default class GitDiff extends View {
           // while any one diff scrolls sideways on its own.
           // shortcut: one overflow area plus one Scrollbar per axis; the single
           // overflow_scrollbar() call leaves this panel stuck on "could not be re-rendered".
-          .child(v_flex().id("gitdiff-list").absolute().inset_0().overflow_y_scroll()
+          .child(v_flex().id("herdr-gitdiff-list").absolute().inset_0().overflow_y_scroll()
             .child(v_flex().w_full().children(groups.flatMap((g) => (g.body ? [this.fileRow(g.file, t), hscroll(this, g, t)] : [this.fileRow(g.file, t)])))))
-          .child(Scrollbar.vertical("gitdiff-list").mode("always").absolute().inset_0())));
+          .child(Scrollbar.vertical("herdr-gitdiff-list").mode("always").absolute().inset_0())));
   }
 }

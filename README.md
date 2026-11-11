@@ -37,20 +37,20 @@ HERDR_APP_HOME='C:\Users\<you>\.config\herdr-app' ./install.sh   # from WSL, for
 ./install.sh --uninstall
 ```
 
-The script copies `mod/` to `<app home>/mods/gitdiff` (staged, then one swap),
+The script copies `mod/` to `<app home>/mods/herdr-gitdiff` (staged, then one swap),
 checks it with `herdr-app` when it finds one (`HERDR_APP_BIN` to pick it), and
 never touches `keys.json` or the layouts.
 
-To show it, put the `gitdiff` mod in a layout's panel, for example the block
+To show it, put the `herdr-gitdiff` mod in a layout's panel, for example the block
 that holds the Changes panel:
 
 ```json
-{ "id": "changes", "type": "block", "content": { "mod": "gitdiff" } }
+{ "id": "changes", "type": "block", "content": { "mod": "herdr-gitdiff" } }
 ```
 
 ## Shortcuts
 
-The mod exposes three commands. Bind them in `keys.json` as `gitdiff.<command>`;
+The mod exposes three commands. Bind them in `keys.json` as `herdr-gitdiff.<command>`;
 they reach the mod only while it's shown.
 
 | Command | Does |
@@ -60,7 +60,7 @@ they reach the mod only while it's shown.
 | `collapse-all` | Closes them all. |
 
 ```json
-{ "global": { "alt-r": "gitdiff.refresh", "alt-e": "gitdiff.expand-all", "alt-shift-e": "gitdiff.collapse-all" } }
+{ "global": { "alt-r": "herdr-gitdiff.refresh", "alt-e": "herdr-gitdiff.expand-all", "alt-shift-e": "herdr-gitdiff.collapse-all" } }
 ```
 
 Showing or hiding the panel is not a mod command (a hidden mod can't receive
@@ -108,3 +108,14 @@ npm test    # node --test tests/*.test.mjs; no dependencies
 ```
 
 `bat` tests are skipped when it isn't installed.
+
+## Icons
+
+`mod/icons/` holds small ui icons (branch, commit, folder, copy, merge, push…),
+taken from [herdr-git-graph](https://github.com/rabeeh-ta/herdr-git-graph)
+(MIT), where most are drawn after [Lucide](https://lucide.dev) (ISC). Their
+licence text ships beside them as `mod/icons/LICENSE-lucide.txt`: keep it there
+when you copy an icon out, `install.sh` copies it with the rest.
+
+In a mod, an icon is `svg("mods/herdr-gitdiff/icons/<name>.svg")` (tinted with the
+text color) or `image(...)` for full color.
