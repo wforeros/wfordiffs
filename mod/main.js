@@ -110,11 +110,12 @@ export default class GitDiff extends View {
     const open = this.open.has(f.path), parts = f.path.split("/"), name = parts.pop();
     const added = this.cfg.added ?? t.ansi2, removed = this.cfg.removed ?? t.ansi1;
     const icon = ICONS[f.status] ?? ICONS.M;
+    const color = f.status === "A" ? added : f.status === "D" ? removed : this.cfg.modified ?? t.blocked;
     return h_flex().id(`f-${f.path}`).w_full().h(28).px(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => this.toggle(f.path, cx))
       .child(div().w(10).text_size(10).text_color(t.dim).child(open ? "▾" : "▸"))
-      .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name))
-        .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(14).flex_none().ml(6).tooltip(icon.replace("_", " "))))
+      .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(14).flex_none().text_color(color).tooltip(icon.replace("_", " ")))
+      .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name)))
       .child(f.binary ? div().flex_none().text_size(11).text_color(t.dim).child("binary")
         // Close together, like the totals in the header.
         : h_flex().flex_none().gap(6).child(div().text_size(11).text_color(added).child(`+${f.add}`)).child(div().text_size(11).text_color(removed).child(`−${f.del}`)));
@@ -171,7 +172,7 @@ export default class GitDiff extends View {
         .child(div().flex_1())
         .child(div().id("herdr-gitdiff-config").w(22).h(22).rounded(4).flex().items_center().justify_center().cursor_pointer().hover((s) => s.bg(t.hover))
           .tooltip("Diff colors")
-          .on_click(() => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 400, props: { settings: true } }))
+          .on_click(() => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 470, props: { settings: true } }))
           .child(svg("mods/herdr-gitdiff/icons/settings.svg").size(14).text_color(t.muted)))
         .child(div().id("herdr-gitdiff-wrap").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .when(this.wrap, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.wrap, (e) => e.text_color(t.muted))

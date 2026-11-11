@@ -7,6 +7,7 @@ import { setShared, closeOverlay, props } from "herdr";
 import { CFG_KEY, DEFAULTS, tint, stepAmount } from "./config.js";
 
 const GREENS = ["#a6e3a1", "#7ee787", "#56d364", "#2ea043", "#40c057", "#00d084"];
+const AMBERS = ["#f9e2af", "#e3b341", "#d29922", "#fab387", "#ffa657", "#bf8700"];
 const REDS = ["#f38ba8", "#ff7b72", "#f85149", "#e5534b", "#ff6b6b", "#d1242f"];
 
 export function settingsView(t, cfg) {
@@ -51,6 +52,7 @@ export function settingsView(t, cfg) {
         .on_click(() => closeOverlay(props()?.overlay)).child("✕")))
     .child(palette("Added", "added", GREENS, t.ansi2))
     .child(palette("Removed", "removed", REDS, t.ansi1))
+    .child(palette("Modified", "modified", AMBERS, t.blocked))
     .child(v_flex().gap(8).child(stepper("Line tint", "line")).child(stepper("Word tint", "word")))
     .child(v_flex().rounded(5).overflow_hidden().border_1().border_color(t.border).child(sample("-", removed, "42")).child(sample("+", added, "43")))
     .child(div().id("cfg-reset").self_start().px(8).py(3).rounded(5).border_1().border_color(t.border).cursor_pointer().hover((s) => s.bg(t.hover))
