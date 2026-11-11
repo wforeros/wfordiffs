@@ -198,7 +198,10 @@ export default class GitDiff extends View {
     // Wrap: the row grows taller and the tokens break at their own gaps. Otherwise it keeps
     // the widest row's width, and the list scrolls sideways.
     const body = this.wrap ? code.flex_1().min_w(0).flex_wrap().whitespace_normal() : code.flex_none();
-    return h_flex().w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).when(this.wrap, (e) => e.min_h(20).py(1)).when(!this.wrap, (e) => e.h(20)).items_center().bg(tint ?? t.background)
+    // Wrapped rows line up on their first line: the numbers sit at the top, not centred
+    // against the whole wrapped block.
+    return h_flex().w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).bg(tint ?? t.background)
+      .when(this.wrap, (e) => e.min_h(20).py(1).items_start()).when(!this.wrap, (e) => e.h(20).items_center())
       .child(div().w(44).flex_none().text_right().pr(8).text_color(t.dim).child(row.o ?? ""))
       .child(div().w(44).flex_none().text_right().pr(8).text_color(t.dim).child(row.n ?? ""))
       .child(div().w(14).flex_none().text_color(mark).child(row.kind === " " ? "" : row.kind))
