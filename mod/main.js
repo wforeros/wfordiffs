@@ -109,7 +109,8 @@ function attachColors(rows, hl) {
 export default class GitDiff extends View {
   init(_props, cx) {
     this.files = []; this.open = new Set(); this.diffs = {};
-    this.wrap = false; // off: one row per line and a horizontal bar; on: long lines break
+    this.wrap = false;
+    this.viewport = 0; // off: one row per line and a horizontal bar; on: long lines break
     this.base = EMPTY_TREE; this.root = null; this.loc = null; this.fp = ""; this.error = null; this.loading = true; this.busy = false;
     this.refresh(cx);
     cx.timer.every(POLL_MS, (cx) => this.refresh(cx));
@@ -176,9 +177,10 @@ export default class GitDiff extends View {
 
   // Full width, so the counts stay at the right edge; only code rows scroll sideways.
   fileRow(f, t) {
+    const vw = this.viewport || 320;
     const open = this.open.has(f.path), parts = f.path.split("/"), name = parts.pop();
     const color = f.status === "A" ? t.ansi2 : f.status === "D" || f.status === "U" ? t.ansi1 : t.blocked;
-    return h_flex().id(`f-${f.path}`).w_full().h(28).px(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
+    return h_flex().id(`f-${f.path}`).w(vw).h(28).px(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => this.toggle(f.path, cx))
       .child(div().w(10).text_size(10).text_color(t.dim).child(open ? "▾" : "▸"))
       .child(div().w(14).text_size(11).text_color(color).child(f.status))
@@ -223,7 +225,7 @@ export default class GitDiff extends View {
     const rows = this.rows();
     const width = Math.max(320, ...rows.map((r) => (r.row?.text?.length ?? 0) * 8 + 100));
     const empty = this.error || (this.loading ? "Loading changes…" : this.root ? "No changes" : "No folder");
-    return v_flex().id("gitdiff").size_full().min_h(0).bg(t.background).text_color(t.foreground).text_size(12).font_family(settings().font_family ?? "JetBrains Mono")
+    return v_flex().id("gitdiff").size_full().on_size_change((size, cx) => { if (size.width !== this.viewport) { this.viewport = size.width; cx.notify(); } }).min_h(0).bg(t.background).text_color(t.foreground).text_size(12).font_family(settings().font_family ?? "JetBrains Mono")
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Changes"))
         .child(div().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(`${this.files.length} files`))
@@ -240,8 +242,8 @@ export default class GitDiff extends View {
           // shortcut: keep overflow_scroll plus one Scrollbar per axis; the single
           // overflow_scrollbar() call leaves this panel stuck on "could not be re-rendered".
           .child(v_flex().id("gitdiff-list").absolute().inset_0().overflow_scroll()
-            .child(v_flex().w_full().children(rows.map((r) => r.file ? this.fileRow(r.file, t) : r.row ? this.codeRow(r.row, r.path, t, width) : div().h(22).px(10).flex().items_center().text_color(t.dim).child(r.text)))))
-          .child(Scrollbar.vertical("gitdiff-list").absolute().inset_0())
-          .child(div().absolute().bottom_0().left_0().right_0().h(8).child(Scrollbar.horizontal("gitdiff-list")))));
+            .child(v_flex().when(this.wrap, (e) => e.w_full()).when(!this.wrap, (e) => e.w(Math.max(this.viewport || 320, width))).children(rows.map((r) => r.file ? this.fileRow(r.file, t) : r.row ? this.codeRow(r.row, r.path, t, width) : div().h(22).px(10).flex().items_center().text_color(t.dim).child(r.text)))))
+          .child(Scrollbar.vertical("gitdiff-list").mode("always").absolute().inset_0())
+          .when(!this.wrap, (e) => e.child(div().absolute().bottom_0().left_0().right_0().h(10).bg(t.chrome).border_t(1).border_color(t.border).child(Scrollbar.horizontal("gitdiff-list").mode("always"))))));
   }
 }
