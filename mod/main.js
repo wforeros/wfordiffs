@@ -110,6 +110,8 @@ export default class GitDiff extends View {
   init(_props, cx) {
     this.files = []; this.open = new Set(); this.diffs = {};
     this.wrap = false;
+    this.offsets = {}; // per file id: sideways offset in pixels
+    this.drag = null;  // { id, startX, startOff } while dragging a bar
     this.viewport = 0; // off: one row per line and a horizontal bar; on: long lines break
     this.base = EMPTY_TREE; this.root = null; this.loc = null; this.fp = ""; this.error = null; this.loading = true; this.busy = false;
     this.refresh(cx);
@@ -224,15 +226,48 @@ export default class GitDiff extends View {
     });
   }
 
-  // An open file: its rows in a box that scrolls sideways, with a bar only when the
-  // widest row really is wider than the panel (never while wrapping).
+  // An open file: its rows shift sideways under a clip of their own, driven by the wheel,
+  // a click on the bar or a drag of it. No nested scroll area: a second one on top of the
+  // vertical list made a plain wheel move both and the panel drift diagonally.
   group(g, t) {
-    const overflow = !this.wrap && g.width > (this.viewport || 320);
-    const box = v_flex().id(g.id).w_full().when(!this.wrap, (e) => e.overflow_x_scroll())
-      .children(g.body.map((row) => this.codeRow(row, g.file.path, t, overflow ? g.width : 0)));
-    return div().w_full().relative()
+    const vw = this.viewport || 320;
+    const maxOff = this.wrap ? 0 : Math.max(0, g.width - vw);
+    const off = Math.min(Math.max(this.offsets[g.id] ?? 0, 0), maxOff);
+    const wide = maxOff > 0;
+    const move = (to, cx) => { this.offsets[g.id] = Math.min(Math.max(to, 0), maxOff); cx.notify(); };
+    const rows = v_flex().w_full().when(off > 0, (e) => e.ml(-off))
+      .children(g.body.map((row) => this.codeRow(row, g.file.path, t, wide ? g.width : 0)));
+    const box = div().w_full().overflow_hidden().child(rows)
+      .when(wide, (e) => e.on_scroll_wheel((event, cx) => {
+        // A sideways wheel, or a vertical one with shift; a plain vertical wheel is the list's.
+        const dx = Math.abs(event.delta.x) > 0 ? event.delta.x : (event.modifiers.shift ? event.delta.y : 0);
+        if (!dx) return;
+        cx.stop_propagation();
+        move(off + dx, cx);
+      }));
+    const trackW = Math.max(vw - 16, 40);
+    const thumbW = wide ? Math.max(24, Math.round(trackW * vw / g.width)) : 0;
+    const thumbX = wide ? Math.round((trackW - thumbW) * (maxOff ? off / maxOff : 0)) : 0;
+    const bar = div().h(10).w_full().px(8).relative()
+      .child(div().absolute().left(8).right(8).top(2).h(6).rounded(3).bg(t.chrome))
+      .child(div().absolute().left(8 + thumbX).top(2).h(6).w(thumbW).rounded(3).bg(t.dim).cursor_pointer()
+        .on_mouse_down("left", (event, cx) => { this.drag = { id: g.id, startX: event.position.x, startOff: off }; cx.stop_propagation(); })
+        .on_mouse_up("left", (_event, cx) => { this.drag = null; cx.notify(); }))
+      .on_mouse_move((event, cx) => {
+        if (this.drag?.id !== g.id) return;
+        const span = trackW - thumbW;
+        if (span <= 0) return;
+        move(this.drag.startOff + ((event.position.x - this.drag.startX) * maxOff) / span, cx);
+      })
+      .on_mouse_down("left", (event, cx) => {
+        // A press on the track jumps so the thumb centres on the pointer.
+        const p = event.local_position?.x ?? 0;
+        const span = Math.max(trackW - thumbW, 1);
+        move(((p - 8 - thumbW / 2) / span) * maxOff, cx);
+      });
+    return div().w_full()
       .child(box)
-      .when(overflow, (e) => e.child(div().absolute().bottom_0().left_0().right_0().h(10).bg(t.chrome).border_t(1).border_color(t.border).child(Scrollbar.horizontal(g.id).mode("always"))));
+      .when(wide, (e) => e.child(bar));
   }
 
   render(cx) {
