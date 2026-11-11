@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseNumstat, parseNameStatus, parseDiff, langOf, tokens } from "../mod/lib.js";
+import { parseNumstat, parseNameStatus, parseDiff, langOf, tokens, parseAnsi, xterm256 } from "../mod/lib.js";
 
 const git = (cwd, ...args) => execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd, encoding: "utf8", maxBuffer: 1e8 });
 const colors = { dim: "D", ansi1: "R", ansi2: "G", ansi4: "F", ansi5: "K" };
@@ -42,4 +42,36 @@ assert.deepEqual(tokens('    return "a" + str(x)  # c', "py", colors).filter(([,
 assert.deepEqual(tokens("function f() {} // hi", "js", colors).filter(([, c]) => c).map(([s, c]) => [s, c]),
   [["function", "K"], ["f", "F"], ["// hi", "D"]]);
 assert.deepEqual(tokens("x = 1", null, colors), [["x = 1", null]]);
+// bat's ANSI output: colors per piece, one entry per source line
+const ansi = "\x1b[38;2;147;153;178m{\x1b[0m\n\x1b[38;2;205;214;244m  \x1b[0m\x1b[38;2;166;227;161m\"x\"\x1b[0m\n\x1b[38;2;250;179;135m1\x1b[0m\n";
+const parsed = parseAnsi(ansi);
+assert.equal(parsed.length, 3);
+assert.deepEqual(parsed[0], [["{", "#9399b2"]]);
+assert.deepEqual(parsed[1], [["  ", "#cdd6f4"], ['"x"', "#a6e3a1"]]);
+assert.deepEqual(parsed[2], [["1", "#fab387"]]);
+assert.deepEqual(parseAnsi("plain\n"), [[["plain", null]]]);
+assert.equal(parseAnsi("").length, 0);
+// 256-colour output (bat without COLORTERM): cube, grays, system colours left alone
+assert.deepEqual(parseAnsi("\x1b[38;5;189mx\x1b[0m\n")[0], [["x", "#cdd6f4"]].map(() => ["x", xterm256(189)]));
+assert.equal(xterm256(16), "#000000");
+assert.equal(xterm256(231), "#ffffff");
+assert.equal(xterm256(232), "#080808");
+assert.equal(xterm256(4), null);
+
+// bat itself, when installed: one entry per source line, and its text is the file's text
+import { spawnSync } from "node:child_process";
+const batBin = ["bat", "batcat"].find((b) => spawnSync(b, ["--version"]).status === 0);
+if (batBin) {
+  const sample = join(dir, "sample.py");
+  writeFileSync(sample, 'def f(x):\n    """doc\n    more"""\n    return "s" # c\n');
+  const out = spawnSync(batBin, ["--color=always", "-pp", "--tabs=4", "--wrap=never", "--theme", "Catppuccin Mocha", "--", sample], { encoding: "utf8" }).stdout;
+  const lines = parseAnsi(out);
+  assert.equal(lines.length, 4);
+  assert.equal(lines[3].map((p) => p[0]).join(""), '    return "s" # c');
+  assert.ok(lines[3].some(([, c]) => c !== null), "bat colors present");
+  console.log("bat: ok");
+} else {
+  console.log("bat: not installed, skipped");
+}
+
 console.log("gitdiff tests: ok");
