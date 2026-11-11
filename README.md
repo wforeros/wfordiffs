@@ -2,7 +2,8 @@
 
 A Changes panel for the [Herdr](https://herdr.dev) desktop app: the changed
 files of the shown repo, each one opening inline into its diff with line
-numbers, `+`/`−` tints and syntax colors. Read-only: no commits, no branches.
+numbers, `+`/`−` tints and syntax colors. It can discard unstaged changes (after a
+confirmation); no commits, no branches.
 
 ## Requirements
 
@@ -101,6 +102,14 @@ that line, or keep the button down and drag over more lines. On release the refe
 copied to the clipboard as `<full path>#L12-L14` (`#L12` for one line), ready to paste in
 the chat with your agent; the header confirms it. Press the **+** of a selected line to
 clear the selection.
+
+## Discarding changes
+
+A file with changes that are not staged shows a small trash icon next to its counts.
+Click it and a dialog asks first. For a tracked file, the unstaged changes go: the file
+goes back to its staged version, so anything you staged stays. For a new file (untracked),
+the dialog deletes it. Either way it can't be undone, and the button is red. Files whose
+changes are all staged get no icon. The icon is in the list, not in the tree view.
 
 ## Open in nvim
 

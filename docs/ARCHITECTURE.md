@@ -4,7 +4,7 @@
 
 ```
 mod/main.js       the GitDiff view: state, refresh loop, key commands, render
-mod/git.js        makeGit({ exec, readTextFile }) -> load (changed files), diffFor (one file's rows)
+mod/git.js        makeGit({ exec, readTextFile }) -> load (changed files), diffFor (one file's rows), discard (one file's unstaged changes)
 mod/highlight.js  makeHighlighter({ exec, settings }) -> bat colors; attachColors (pure)
 mod/hscroll.js    one open file's sideways scrolling (bar, wheel, drag); state lives on the view
 mod/parse.js      pure: numstat, name-status and unified-diff parsing
@@ -13,6 +13,7 @@ mod/lexer.js      pure: the fallback lexer used when bat is missing
 mod/inline.js    pure: word-level marks inside a changed line (markWords, splitMarks)
 mod/config.js    pure: tint colors and strengths (kept in shared("gitdiff.cfg"))
 mod/settings-view.js  the gear window: palette, steppers, preview (same mod, props().settings)
+mod/discard-view.js   the confirm dialog of a discard (same mod, props().discard); main.js does the work
 mod/ask.js       pure: selected rows -> "<path>#L1-L3" reference
 mod/tree.js      pure: changed files -> folder and file rows for the tree view
 mod/metrics.js    gutter widths and the per-character width estimate

@@ -1,9 +1,9 @@
 // Changes panel: the changed files, each one opens inline into its diff
-// (line numbers, +/- tints, syntax colors). Read-only: no commits, no branches.
+// (line numbers, +/- tints, syntax colors). It discards unstaged changes (after a confirm); no commits, no branches.
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
-import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, props, hc, run } from "herdr";
+import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, closeOverlay, notify, props, hc, run } from "herdr";
 import { selectedRows, reference } from "./ask.js";
 import { ADD_W, NUM_W, SIGN_W, CHAR_W, GUTTER_W, PAD_L } from "./metrics.js";
 import { EMPTY_TREE } from "./parse.js";
@@ -13,11 +13,12 @@ import { markWords, splitMarks } from "./inline.js";
 import { breakRuns, wrapChars } from "./wrap.js";
 import { parseConfig, tint, DEFAULTS, CFG_KEY } from "./config.js";
 import { settingsView } from "./settings-view.js";
+import { discardView } from "./discard-view.js";
 import { hscroll } from "./hscroll.js";
 import { makeHighlighter, attachColors } from "./highlight.js";
 import { treeRows } from "./tree.js";
 
-const { load, diffFor } = makeGit({ exec, readTextFile });
+const { load, diffFor, discard } = makeGit({ exec, readTextFile });
 const { highlight } = makeHighlighter({ exec, settings });
 
 // The status of a file -> its icon (mod/icons/custom). Untracked files count as new.
@@ -47,6 +48,7 @@ export default class GitDiff extends View {
     this.files = []; this.open = new Set(); this.diffs = {};
     this.cfg = { ...DEFAULTS }; this.k = 1; // tint colors and strengths, from shared(); set in the gear window
     if (props()?.settings) return; // the gear window: it only draws the settings
+    if (props()?.discard) { this.busy = false; this.err = null; return; } // the confirm dialog of a discard
     this.wrap = false; // off: one row per line and a horizontal bar; on: long lines break
     // On: the files show as a tree (folders with changes, then their files) in a column on the right.
     this.tree = false;
@@ -56,6 +58,7 @@ export default class GitDiff extends View {
     this.drag = null;  // { id, startX, startOff } while dragging a bar
     this.widths = {}; // per scroll area (the list, the tree): its width, to size each file's bar
     this.base = EMPTY_TREE; this.root = null; this.loc = null; this.fp = ""; this.error = null; this.loading = true; this.busy = false;
+    this.err = null; // the discard dialog's error, when the discard failed
     // Selecting lines to reference: sel = { path, from, to } (row indexes of that file's diff).
     this.sel = null; this.hover = null; this.dragging = false; this.flash = ""; // a short message in the header
     this.refresh(cx);
@@ -159,6 +162,31 @@ export default class GitDiff extends View {
     this.say(`Copied ${ref}`, cx);
   }
 
+  // Asks first: the confirm dialog does the discard (its own copy of this mod, over the panel).
+  askDiscard(f) {
+    if (!this.loc) return;
+    openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 420, height: 220,
+      props: { discard: { loc: this.loc, file: { path: f.path, untracked: !!f.untracked } } } });
+  }
+
+  // Runs in the dialog. On success the dialog closes; the panel shows the file's new state at its next refresh.
+  confirmDiscard(cx) {
+    const { discard: d, overlay } = props();
+    if (this.busy) return;
+    this.busy = true; this.err = null; cx.notify();
+    cx.spawn(async (cx) => {
+      try {
+        await discard(d.loc, d.file);
+      } catch (e) {
+        this.busy = false; this.err = String(e?.message ?? e); cx.notify();
+        return;
+      }
+      closeOverlay(overlay);
+      notify({ title: d.file.untracked ? "File deleted" : "Changes discarded", body: d.file.path, level: "success", timeout: 3000 });
+    });
+    cx.notify();
+  }
+
   px(n) { return Math.round(n * this.k); }
 
   // Left padding of a row at this depth: the tree starts flush left; the list keeps its margin.
@@ -206,13 +234,33 @@ export default class GitDiff extends View {
       .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(14).flex_none().text_color(color).tooltip(icon.replace("_", " ")))
       .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(!e.tree && parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name)))
       // The tree shows only where the changes are: the line counts and nvim are the list's.
-      .when(!e.tree && f.status !== "D", (x) => x.child(div().id(`${col}-nvim-${f.path}`).w(this.px(20)).h(this.px(20)).flex_none().rounded(4).flex().items_center().justify_center()
-        .cursor_pointer().hover((x) => x.bg(t.hover)).tooltip("Open in nvim")
-        .on_click((_e, cx) => { cx.stop_propagation(); this.openNvim(f.path, cx); })
-        .child(svg("mods/herdr-gitdiff/icons/nvim.svg").size(this.px(13)).text_color(t.muted))))
-      .when(!e.tree, (x) => x.child(f.binary ? div().flex_none().text_size(this.px(11)).text_color(t.dim).child("binary")
-        // Close together, like the totals in the header.
-        : h_flex().flex_none().gap(6).child(div().text_size(this.px(11)).text_color(added).child(`+${f.add}`)).child(div().text_size(this.px(11)).text_color(removed).child(`−${f.del}`))));
+      // Fixed slots (an empty one when a file has no icon) and a counts column as wide as the
+      // widest file's numbers, so the icons sit at the same x in every row.
+      .when(!e.tree, (x) => x
+        .child(f.status !== "D"
+          ? div().id(`${col}-nvim-${f.path}`).w(this.px(20)).h(this.px(20)).flex_none().rounded(4).flex().items_center().justify_center()
+            .cursor_pointer().hover((h) => h.bg(t.hover)).tooltip("Open in nvim")
+            .on_click((_e, cx) => { cx.stop_propagation(); this.openNvim(f.path, cx); })
+            .child(svg("mods/herdr-gitdiff/icons/nvim.svg").size(this.px(13)).text_color(t.muted))
+          : div().w(this.px(20)).flex_none())
+        // Only in the list, like nvim: the discard acts on a file, not on where its changes are.
+        .child(f.unstaged
+          ? div().id(`discard-${f.path}`).w(this.px(20)).h(this.px(20)).flex_none().rounded(4).flex().items_center().justify_center()
+            .cursor_pointer().hover((h) => h.bg(t.hover)).tooltip(f.untracked ? "Delete this new file" : "Discard the unstaged changes")
+            .on_click((_e, cx) => { cx.stop_propagation(); this.askDiscard(f); })
+            .child(svg("mods/herdr-gitdiff/icons/trash.svg").size(this.px(13)).text_color(t.muted))
+          : div().w(this.px(20)).flex_none())
+        .child(h_flex().w(this.countsW).flex_none().justify_end().items_center()
+          // Close together, like the totals in the header.
+          .child(f.binary ? div().text_size(this.px(11)).text_color(t.dim).child("binary")
+            : h_flex().gap(6).child(div().text_size(this.px(11)).text_color(added).child(`+${f.add}`)).child(div().text_size(this.px(11)).text_color(removed).child(`−${f.del}`)))));
+  }
+
+  // The width of the counts column: the widest file's numbers (or "binary"), so every row's icons line up.
+  countsWidth() {
+    const digits = Math.max(1, ...this.files.map((f) => Math.max(String(f.add).length, String(f.del).length)));
+    const cw = CHAR_W * (11 / 12) * this.k; // 11px text; CHAR_W is the estimate at the panel's 12px base
+    return Math.ceil(Math.max(2 * (digits + 1) * cw + 6 * this.k, 6 * cw));
   }
 
   codeRow(row, path, t, width, i, col = "") {
@@ -285,7 +333,10 @@ export default class GitDiff extends View {
     this.cfg = parseConfig(shared(CFG_KEY));
     this.k = this.cfg.font / DEFAULTS.font; // every size below was designed at 12px
     if (props()?.settings) return settingsView(t, this.cfg);
+    if (props()?.discard) return discardView(t, { target: props().discard.file, busy: this.busy, error: this.err,
+      onConfirm: (_e, cx) => this.confirmDiscard(cx), onCancel: () => closeOverlay(props().overlay) });
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
+    this.countsW = this.countsWidth();
     const empty = this.error || (this.loading ? "Loading changes…" : this.root ? "No changes" : "No folder");
     return v_flex().id("herdr-gitdiff").size_full().on_mouse_move((e, cx) => {
         // Dragging the divider: to the right makes the list wider, so the tree narrower.
