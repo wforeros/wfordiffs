@@ -47,6 +47,7 @@ mkdir -p "$HOME_DIR/mods"
 rm -rf "$STAGE" && mkdir -p "$STAGE/herdr-gitdiff"
 # Only the mod itself: the app writes its own jsconfig.json and *.d.ts next to it.
 for f in "$SRC"/*.js "$SRC"/mod.json; do cp "$f" "$STAGE/herdr-gitdiff/"; done
+cp -R "$SRC/icons" "$STAGE/herdr-gitdiff/icons"
 # Icons (drawn after Lucide, ISC): svgs and their licence, never without it.
 if [ -d "$SRC/icons" ]; then mkdir -p "$STAGE/herdr-gitdiff/icons" && cp "$SRC"/icons/*.svg "$SRC"/icons/LICENSE-lucide.txt "$STAGE/herdr-gitdiff/icons/"; fi
 

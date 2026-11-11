@@ -17,6 +17,9 @@ import { makeHighlighter, attachColors } from "./highlight.js";
 const { load, diffFor } = makeGit({ exec, readTextFile });
 const { highlight } = makeHighlighter({ exec, settings });
 
+// The status of a file -> its icon (mod/icons/custom). Untracked files count as new.
+const ICONS = { M: "modified_file", A: "new_file", D: "deleted_file" };
+
 const POLL_MS = 5000;
 // shortcut: expand-all opens at most this many files, each one is a git diff call; raise it if you need more.
 const EXPAND_MAX = 50;
@@ -106,12 +109,12 @@ export default class GitDiff extends View {
   fileRow(f, t) {
     const open = this.open.has(f.path), parts = f.path.split("/"), name = parts.pop();
     const added = this.cfg.added ?? t.ansi2, removed = this.cfg.removed ?? t.ansi1;
-    const color = f.status === "A" ? added : f.status === "D" || f.status === "U" ? removed : t.blocked;
+    const icon = ICONS[f.status] ?? ICONS.M;
     return h_flex().id(`f-${f.path}`).w_full().h(28).px(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => this.toggle(f.path, cx))
       .child(div().w(10).text_size(10).text_color(t.dim).child(open ? "▾" : "▸"))
-      .child(div().w(14).text_size(11).text_color(color).child(f.status))
-      .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name)))
+      .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name))
+        .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(14).flex_none().ml(6).tooltip(icon.replace("_", " "))))
       .child(f.binary ? div().flex_none().text_size(11).text_color(t.dim).child("binary")
         // Close together, like the totals in the header.
         : h_flex().flex_none().gap(6).child(div().text_size(11).text_color(added).child(`+${f.add}`)).child(div().text_size(11).text_color(removed).child(`−${f.del}`)));

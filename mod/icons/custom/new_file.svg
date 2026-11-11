@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Cuadrado exterior redondeado en verde Git -->
+  <rect x="1" y="1" width="14" height="14" rx="3.5" ry="3.5" fill="none" stroke="#2da44e" stroke-width="1.8" />
+  
+  <!-- Cruz central en verde Git -->
+  <path fill="#2da44e" fill-rule="evenodd" d="M8 4.5a.75.75 0 0 1 .75.75v2h2a.75.75 0 0 1 0 1.5h-2v2a.75.75 0 0 1-1.5 0v-2h-2a.75.75 0 0 1 0-1.5h2v-2A.75.75 0 0 1 8 4.5z" />
+</svg>
