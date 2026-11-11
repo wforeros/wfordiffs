@@ -6,6 +6,7 @@
 #   HERDR_APP_HOME='C:\Users\me\.config\herdr-app' ./install.sh
 #   ./install.sh --uninstall
 #
+# Under WSL, HERDR_APP_HOME may be the Windows form (C:\...) or the /mnt/c path.
 # HERDR_APP_BIN: the herdr-app binary, used to check the mod before it lands.
 # Unset, the first herdr-app on PATH is used; none found, the check is skipped.
 set -euo pipefail
@@ -13,6 +14,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SRC="$ROOT/mod"
 HOME_DIR="${HERDR_APP_HOME:-$HOME/.config/herdr-app}"
+# A Windows home (C:\...) is seen from WSL as /mnt/c/...
+[ -d "$HOME_DIR" ] || { W="$(command -v wslpath >/dev/null 2>&1 && wslpath -u "$HOME_DIR" 2>/dev/null || true)"; [ -n "$W" ] && HOME_DIR="$W"; }
 DEST="$HOME_DIR/mods/gitdiff"
 STAGE="$HOME_DIR/mods/.gitdiff-install"
 
@@ -44,7 +47,9 @@ if [ -n "$BIN" ]; then
   # A Windows binary needs a Windows path (wslpath when we're under WSL).
   P="$STAGE/gitdiff"
   command -v wslpath >/dev/null 2>&1 && P="$(wslpath -w "$P")"
-  "$BIN" check "$P" >/dev/null || { rm -rf "$STAGE"; die "herdr-app check failed"; }
+  # The app reads its home from HERDR_APP_HOME, in its own (Windows) form.
+  APP_HOME_WIN="$HOME_DIR"; command -v wslpath >/dev/null 2>&1 && APP_HOME_WIN="$(wslpath -w "$HOME_DIR")"
+  HERDR_APP_HOME="$APP_HOME_WIN" "$BIN" check "$P" >/dev/null || { rm -rf "$STAGE"; die "herdr-app check failed"; }
 else
   say "no herdr-app binary found: skipping the check"
 fi
