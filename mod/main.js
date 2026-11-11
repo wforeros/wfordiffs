@@ -4,6 +4,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
 import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings } from "herdr";
+import { NUM_W, SIGN_W, CHAR_W, GUTTER_W } from "./metrics.js";
 import { EMPTY_TREE, parseNumstat, parseNameStatus, parseDiff, parseAnsi, langOf, tokens } from "./lib.js";
 
 // Reads write nothing under .git (no index refresh or lock), so the folder watch stays quiet.
@@ -109,10 +110,10 @@ function attachColors(rows, hl) {
 export default class GitDiff extends View {
   init(_props, cx) {
     this.files = []; this.open = new Set(); this.diffs = {};
-    this.wrap = false;
+    this.wrap = false; // off: one row per line and a horizontal bar; on: long lines break
     this.offsets = {}; // per file id: sideways offset in pixels
     this.drag = null;  // { id, startX, startOff } while dragging a bar
-    this.viewport = 0; // off: one row per line and a horizontal bar; on: long lines break
+    this.viewport = 0; // the panel's width, to size each file's bar
     this.base = EMPTY_TREE; this.root = null; this.loc = null; this.fp = ""; this.error = null; this.loading = true; this.busy = false;
     this.refresh(cx);
     cx.timer.every(POLL_MS, (cx) => this.refresh(cx));
@@ -204,10 +205,10 @@ export default class GitDiff extends View {
     // against the whole wrapped block.
     return h_flex().w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).bg(tint ?? t.background)
       .when(this.wrap, (e) => e.min_h(20).py(1).items_start()).when(!this.wrap, (e) => e.h(20).items_center())
-      // Gutter fits three digits (shortcut: a four-digit line number in a big file is clipped).
-      .child(div().w(30).flex_none().text_right().pr(4).text_color(t.dim).child(row.o ?? ""))
-      .child(div().w(30).flex_none().text_right().pr(4).text_color(t.dim).child(row.n ?? ""))
-      .child(div().w(12).flex_none().text_color(mark).child(row.kind === " " ? "" : row.kind))
+      // shortcut: the gutter fits three digits; a four-digit line number in a big file is clipped.
+      .child(div().w(NUM_W).flex_none().text_right().pr(4).text_color(t.dim).child(row.o ?? ""))
+      .child(div().w(NUM_W).flex_none().text_right().pr(4).text_color(t.dim).child(row.n ?? ""))
+      .child(div().w(SIGN_W).flex_none().text_color(mark).child(row.kind === " " ? "" : row.kind))
       .child(body);
   }
 
@@ -218,10 +219,8 @@ export default class GitDiff extends View {
       if (!this.open.has(f.path)) return { file: f };
       const body = this.diffs[f.path];
       if (!body) return { file: f, body: [{ kind: "@", text: "Loading…" }], width: 0, id: `gv-${i}` };
-      // What the widest row needs: two number gutters, the sign, then the text.
-      // shortcut: 9.6px per character is an estimate of the mono advance at the panel's
-      // zoom; if a bar shows on a file that fits (or the reverse), tune this number.
-      const width = Math.max(...body.map((r) => r.text.length * 9.6 + 76), 0);
+      // What the widest row needs: the gutters, then the text.
+      const width = Math.max(...body.map((r) => r.text.length * CHAR_W + GUTTER_W), 0);
       return { file: f, body, width, id: `gv-${i}` };
     });
   }
