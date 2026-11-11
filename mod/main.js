@@ -113,7 +113,7 @@ export default class GitDiff extends View {
     const color = f.status === "A" ? added : f.status === "D" ? removed : this.cfg.modified ?? t.blocked;
     return h_flex().id(`f-${f.path}`).w_full().h(28).px(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => this.toggle(f.path, cx))
-      .child(div().w(10).text_size(10).text_color(t.dim).child(open ? "▾" : "▸"))
+      .child(svg(`mods/herdr-gitdiff/icons/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim))
       .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(14).flex_none().text_color(color).tooltip(icon.replace("_", " ")))
       .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name)))
       .child(f.binary ? div().flex_none().text_size(11).text_color(t.dim).child("binary")
