@@ -4,7 +4,7 @@
 
 ```
 mod/main.js       the GitDiff view: state, refresh loop, key commands, render
-mod/git.js        makeGit({ exec, readTextFile }) -> load (changed files), diffFor (one file's rows), discard (one file's unstaged changes)
+mod/git.js        makeGit({ exec, readTextFile }) -> load (changed files, or a commit's, plus the last 4 commits), diffFor (one file's rows), discard (one file's unstaged changes)
 mod/highlight.js  makeHighlighter({ exec, settings }) -> bat colors; attachColors (pure)
 mod/hscroll.js    one open file's sideways scrolling (bar, wheel, drag); state lives on the view
 mod/parse.js      pure: numstat, name-status and unified-diff parsing
@@ -63,3 +63,11 @@ until the body is measured the two columns share it evenly.
 collapsed folder's row, with `open: false`, but not the rows under it. A click on a folder row
 (its chevron included) toggles its path in the set. Files in the tree have no chevron: a
 spacer keeps their icons in line with the folders' icons, and a click opens the diff.
+
+## Showing a commit
+
+The dropdown beside the title sets `this.rev` (`null`: the uncommitted changes). With a `rev`, `load` diffs
+`rev^` (or the empty tree for a root commit) against `rev`, with no untracked files, and `diffFor` and
+`highlight` read that commit's files from git, not the worktree. The list and the tree show the result the
+same way. The nvim and discard buttons are hidden then. Hovering "Committed" opens the last 4 commits of
+the branch (`COMMITS` in `git.js`).

@@ -5,15 +5,32 @@ import { EMPTY_TREE, parseNumstat, parseNameStatus, parseDiff } from "./parse.js
 // Reads write nothing under .git (no index refresh or lock), so the folder watch stays quiet.
 const GIT = ["--no-optional-locks", "-c", "core.fsmonitor=false", "-c", "diff.autoRefreshIndex=false", "-c", "core.quotepath=off"];
 const LIMIT = 1000;
+const COMMITS = 4; // how many recent commits the picker lists
 
 export const msg = (text) => [{ kind: "@", text }];
 
 export function makeGit({ exec, readTextFile }) {
-  async function load(loc) {
+  // rev: a commit to show instead of the worktree; its changes are the diff against its first parent.
+  async function load(loc, rev = null) {
     const top = await exec("git", [...GIT, "rev-parse", "--show-toplevel"], { cwd: loc.cwd, on: loc.on });
-    if (top.code !== 0) return { root: null, base: EMPTY_TREE, files: [], error: "Not a git repository" };
+    if (top.code !== 0) return { root: null, base: EMPTY_TREE, files: [], commits: [], error: "Not a git repository" };
     const g = { cwd: top.stdout.trim(), on: loc.on };
     const run = (args) => exec("git", [...GIT, ...args], g);
+    // The last commits of the branch, for the picker (none in a repo without commits).
+    const log = await run(["log", "-n", String(COMMITS), "--format=%H%x1f%h%x1f%s"]);
+    const commits = log.code !== 0 ? [] : log.stdout.split("\n").filter(Boolean).map((l) => { const [sha, short, subject] = l.split("\x1f"); return { sha, short, subject }; });
+    if (rev) {
+      const parent = await run(["rev-parse", "--verify", "-q", `${rev}^`]);
+      const from = parent.code === 0 ? `${rev}^` : EMPTY_TREE;
+      const [num, ns, body] = await Promise.all([
+        run(["diff", from, rev, "--numstat", "-z", "--no-renames"]),
+        run(["diff", from, rev, "--name-status", "-z", "--no-renames"]),
+        run(["log", "-1", "--format=%B", rev]), // the whole message, subject and body
+      ]);
+      const status = parseNameStatus(ns.stdout);
+      const files = parseNumstat(num.stdout).map((f) => ({ ...f, status: status[f.path] ?? "M", unstaged: false }));
+      return { root: g.cwd, base: from, rev, files, commits, message: body.stdout.trim(), error: null };
+    }
     const head = await run(["rev-parse", "--verify", "-q", "HEAD"]);
     const base = head.code === 0 ? "HEAD" : EMPTY_TREE;
     const [num, ns, others, unstaged] = await Promise.all([
@@ -32,10 +49,10 @@ export function makeGit({ exec, readTextFile }) {
       const lines = text === null || binary ? 0 : text.split("\n").length - Number(text.endsWith("\n"));
       return { path, add: lines, del: 0, binary, status: "A", untracked: true, unstaged: true };
     }));
-    return { root: g.cwd, base, files: [...files, ...untracked], error: null };
+    return { root: g.cwd, base, rev: null, files: [...files, ...untracked], commits, error: null };
   }
 
-  async function diffFor(loc, f, base) {
+  async function diffFor(loc, f, base, rev = null) {
     if (f.binary) return msg("Binary file");
     if (f.untracked) {
       const text = await readTextFile(`${loc.cwd}/${f.path}`, { on: loc.on });
@@ -44,7 +61,7 @@ export function makeGit({ exec, readTextFile }) {
       if (lines.at(-1) === "") lines.pop();
       return parseDiff(`@@ -0,0 +1,${lines.length} @@\n` + lines.map((l) => `+${l}`).join("\n"));
     }
-    const r = await exec("git", [...GIT, "diff", base, "--no-color", "--no-ext-diff", "-U3", "--", f.path], { cwd: loc.cwd, on: loc.on });
+    const r = await exec("git", [...GIT, "diff", base, ...(rev ? [rev] : []), "--no-color", "--no-ext-diff", "-U3", "--", f.path], { cwd: loc.cwd, on: loc.on });
     if (r.code !== 0) return msg(r.stderr.trim() || "git diff failed");
     return parseDiff(r.stdout);
   }

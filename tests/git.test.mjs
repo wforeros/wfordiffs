@@ -91,3 +91,20 @@ test("discard with a name that has glob characters touches only that file", asyn
   assert.equal(readFileSync(join(dir, "a*b.txt"), "utf8"), "x\n");
   assert.equal(readFileSync(join(dir, "axb.txt"), "utf8"), "changed\n");
 });
+
+test("a commit's changes, and the recent commits", async () => {
+  const dir = scratchRepo();
+  write(dir, "a.txt", "one\n");
+  git(dir, "add", "."); git(dir, "commit", "-qm", "first");
+  write(dir, "a.txt", "one\ntwo\n"); write(dir, "b.txt", "x\n");
+  git(dir, "add", "."); git(dir, "commit", "-qm", "second");
+  const loc = { cwd: dir, on: null };
+  const head = await load(loc);
+  assert.deepEqual(head.commits.map((c) => c.subject), ["second", "first"]);
+  const r = await load(loc, head.commits[0].sha);
+  assert.deepEqual(r.files.map((f) => [f.path, f.add, f.status]).sort(), [["a.txt", 1, "M"], ["b.txt", 1, "A"]]);
+  const rows = await diffFor(loc, r.files.find((f) => f.path === "a.txt"), r.base, r.rev);
+  assert.deepEqual(rows.filter((x) => x.kind === "+").map((x) => x.text), ["two"]);
+  const root = await load(loc, head.commits[1].sha); // the first commit has no parent
+  assert.deepEqual(root.files.map((f) => f.path), ["a.txt"]);
+});

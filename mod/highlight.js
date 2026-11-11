@@ -25,18 +25,21 @@ export function makeHighlighter({ exec, settings }) {
   }
 
   // Colored lines of the new file and of the HEAD file, as bat sees them whole (multi-line strings and comments right).
-  async function highlight(loc, f, base) {
+  async function highlight(loc, f, base, rev = null) {
     const bat = await batFor(loc.on);
     if (!bat) return null;
     const theme = settings().dark === false ? "Catppuccin Latte" : "Catppuccin Mocha";
     const out = {};
     // COLORTERM: without it bat paints 256-colour codes, not the theme's exact colors.
     if (f.status !== "D") {
-      const r = await exec("sh", ["-c", 'COLORTERM=truecolor exec "$@"', "sh", bat, "--color=always", "-pp", "--tabs=4", "--wrap=never", "--theme", theme, "--", f.path], { cwd: loc.cwd, on: loc.on });
+      // A commit's file is read from git, not from the worktree.
+      const r = rev
+        ? await exec("sh", ["-c", 'git --no-optional-locks show "$1" | COLORTERM=truecolor "$2" --color=always -pp --tabs=4 --wrap=never --theme "$3" --file-name "$4"', "sh", `${rev}:${f.path}`, bat, theme, f.path], { cwd: loc.cwd, on: loc.on })
+        : await exec("sh", ["-c", 'COLORTERM=truecolor exec "$@"', "sh", bat, "--color=always", "-pp", "--tabs=4", "--wrap=never", "--theme", theme, "--", f.path], { cwd: loc.cwd, on: loc.on });
       if (r.code === 0) out.new = parseAnsi(r.stdout);
     }
     if (!f.untracked && f.status !== "A" && base !== EMPTY_TREE) {
-      const r = await exec("sh", ["-c", 'git --no-optional-locks show "$1" | COLORTERM=truecolor "$2" --color=always -pp --tabs=4 --wrap=never --theme "$3" --file-name "$4"', "sh", `HEAD:${f.path}`, bat, theme, f.path], { cwd: loc.cwd, on: loc.on });
+      const r = await exec("sh", ["-c", 'git --no-optional-locks show "$1" | COLORTERM=truecolor "$2" --color=always -pp --tabs=4 --wrap=never --theme "$3" --file-name "$4"', "sh", `${base}:${f.path}`, bat, theme, f.path], { cwd: loc.cwd, on: loc.on });
       if (r.code === 0) out.old = parseAnsi(r.stdout);
     }
     return out;

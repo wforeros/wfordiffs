@@ -57,6 +57,9 @@ export default class GitDiff extends View {
     this.offsets = {}; // per file id: sideways offset in pixels
     this.drag = null;  // { id, startX, startOff } while dragging a bar
     this.widths = {}; // per scroll area (the list, the tree): its width, to size each file's bar
+    this.rev = null; this.commits = []; // rev: the commit shown (null: the uncommitted changes)
+    this.message = ""; this.msgOpen = false; // the shown commit's message, folded or not
+    this.menu = false; this.sub = false; // the picker beside the title, and its list of commits
     this.base = EMPTY_TREE; this.root = null; this.loc = null; this.fp = ""; this.error = null; this.loading = true; this.busy = false;
     this.err = null; // the discard dialog's error, when the discard failed
     // Selecting lines to reference: sel = { path, from, to } (row indexes of that file's diff).
@@ -81,14 +84,18 @@ export default class GitDiff extends View {
   refresh(cx) {
     if (this.busy) return;
     this.busy = true;
+    const asked = this.rev, stale = () => asked !== this.rev;
     cx.spawn(async (cx) => {
       try {
         const loc = location();
-        const next = await load(loc);
+        const rev = asked;
+        const next = await load(loc, rev);
+        if (rev !== this.rev) return; // another commit was picked meanwhile: the finally below loads it
+        this.commits = next.commits ?? []; this.message = next.message ?? "";
         this.error = next.error;
         this.root = next.root; this.base = next.base;
         this.loc = next.root ? { cwd: next.root, on: loc.on } : null;
-        const fp = JSON.stringify(next.files.map((f) => [f.path, f.add, f.del, f.status]));
+        const fp = JSON.stringify([rev, ...next.files.map((f) => [f.path, f.add, f.del, f.status])]);
         if (fp !== this.fp) {
           this.fp = fp; this.files = next.files; this.diffs = {}; this.sel = null; // the rows it pointed at are gone
           for (const p of [...this.open]) if (!next.files.some((f) => f.path === p)) this.open.delete(p);
@@ -98,21 +105,32 @@ export default class GitDiff extends View {
         this.error = String(e?.message ?? e);
       } finally {
         this.busy = false; this.loading = false; cx.notify();
+        if (stale()) this.refresh(cx);
       }
     });
+  }
+
+  // Shows the changes of a commit (null: the uncommitted ones) in both the list and the tree.
+  pick(rev, cx) {
+    this.menu = false; this.sub = false;
+    if (rev !== this.rev) {
+      this.rev = rev; this.message = ""; this.msgOpen = false; this.files = []; this.open.clear(); this.diffs = {}; this.sel = null; this.fp = ""; this.loading = true;
+      this.refresh(cx);
+    }
+    cx.notify();
   }
 
   // Loads one file's diff once per refresh; a result from an older refresh is dropped.
   ensure(path, cx) {
     const f = this.files.find((x) => x.path === path);
     if (!f || !this.loc || this.diffs[path]) return;
-    const fp = this.fp, loc = this.loc, base = this.base;
+    const fp = this.fp, loc = this.loc, base = this.base, rev = this.rev;
     cx.spawn(async (cx) => {
       let rows;
       try {
-        rows = await diffFor(loc, f, base);
+        rows = await diffFor(loc, f, base, rev);
         markWords(rows);
-        attachColors(rows, await highlight(loc, f, base).catch(() => null));
+        attachColors(rows, await highlight(loc, f, base, rev).catch(() => null));
       } catch (e) { rows = msg(`Cannot load diff: ${e?.message ?? e}`); }
       if (fp === this.fp) this.diffs[path] = rows;
       cx.notify();
@@ -237,7 +255,7 @@ export default class GitDiff extends View {
       // Fixed slots (an empty one when a file has no icon) and a counts column as wide as the
       // widest file's numbers, so the icons sit at the same x in every row.
       .when(!e.tree, (x) => x
-        .child(f.status !== "D"
+        .child(f.status !== "D" && !this.rev
           ? div().id(`${col}-nvim-${f.path}`).w(this.px(20)).h(this.px(20)).flex_none().rounded(4).flex().items_center().justify_center()
             .cursor_pointer().hover((h) => h.bg(t.hover)).tooltip("Open in nvim")
             .on_click((_e, cx) => { cx.stop_propagation(); this.openNvim(f.path, cx); })
@@ -338,7 +356,7 @@ export default class GitDiff extends View {
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
     this.countsW = this.countsWidth();
     const empty = this.error || (this.loading ? "Loading changes…" : this.root ? "No changes" : "No folder");
-    return v_flex().id("herdr-gitdiff").size_full().on_mouse_move((e, cx) => {
+    return v_flex().id("herdr-gitdiff").size_full().relative().on_mouse_move((e, cx) => {
         // Dragging the divider: to the right makes the list wider, so the tree narrower.
         if (!this.splitDrag || !this.bodyW) return;
         const next = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, this.splitDrag.start - (e.position.x - this.splitDrag.x) / this.bodyW));
@@ -351,6 +369,11 @@ export default class GitDiff extends View {
       }).min_h(0).bg(t.background).text_color(t.foreground).text_size(this.cfg.font).font_family(settings().font_family ?? "JetBrains Mono")
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Changes"))
+        .child(div().id("herdr-gitdiff-rev").px(6).py(1).rounded(4).border_1().border_color(t.border).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
+          .when(this.menu, (e) => e.bg(t.selected)).text_color(this.rev ? t.foreground : t.muted)
+          .tooltip("Uncommitted changes, or what a recent commit changed")
+          .on_click((_e, cx) => { this.menu = !this.menu; this.sub = false; cx.notify(); })
+          .child(`${this.rev ? this.commits.find((c) => c.sha === this.rev)?.short ?? this.rev.slice(0, 7) : "Uncommitted"} ▾`))
         .child(div().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(`${this.files.length} files`))
         .when(!!this.flash, (e) => e.child(div().min_w(0).truncate().text_size(10).text_color(this.cfg.added ?? t.ansi2).child(this.flash)))
         .child(div().flex_1())
@@ -367,6 +390,7 @@ export default class GitDiff extends View {
           .on_click((_e, cx) => { this.tree = !this.tree; cx.notify(); }).child("tree"))
         .child(div().text_size(this.px(11)).text_color(this.cfg.added ?? t.ansi2).child(`+${add}`))
         .child(div().text_size(this.px(11)).text_color(this.cfg.removed ?? t.ansi1).child(`−${del}`)))
+      .when(!!this.rev && !!this.message, (e) => e.child(this.messageBox(t)))
       .child(this.files.length === 0 ? div().flex_1().min_h(0).p(12).text_color(t.dim).child(empty)
         // The list is always here; the tree, when on, is a column of its own on the right.
         : h_flex().flex_1().min_h(0).items_stretch()
@@ -374,7 +398,41 @@ export default class GitDiff extends View {
           // With the tree on, the list takes its share of the body (the tree takes the rest); before
           // the body is measured, both share it evenly.
           .child(this.area("herdr-gitdiff-list", this.groups(false), t, this.tree && this.bodyW ? Math.round(this.bodyW * (1 - this.split)) : null))
-          .when(this.tree, (e) => e.child(this.divider(t)).child(this.area("herdr-gitdiff-tree", this.groups(true), t, null))));
+          .when(this.tree, (e) => e.child(this.divider(t)).child(this.area("herdr-gitdiff-tree", this.groups(true), t, null))))
+      // Last, so it paints over the body.
+      .when(this.menu, (e) => e.child(this.revMenu(t)));
+  }
+
+  // The commit's message under the header: its first line, or all of it when opened.
+  messageBox(t) {
+    const first = this.message.split("\n")[0], rest = this.message.slice(first.length).trim();
+    const short = this.commits.find((c) => c.sha === this.rev)?.short ?? this.rev.slice(0, 7);
+    // Not a row of the list: a block with an accent bar, the subject in bold and the hash above it.
+    return v_flex().flex_none().px(14).py(8).gap(4).border_l(3).border_color(t.accent ?? t.muted).border_b(1).bg(t.raised)
+      .child(div().text_size(this.px(10)).text_color(t.dim).child(`COMMIT ${short}`))
+      .child(h_flex().id("herdr-gitdiff-msg").gap(8).items_start().when(!!rest, (e) => e.cursor_pointer())
+        .on_click((_e, cx) => { if (rest) { this.msgOpen = !this.msgOpen; cx.notify(); } })
+        .child(div().flex_1().min_w(0).font_semibold().text_size(this.px(13)).text_color(t.foreground).when(!this.msgOpen, (e) => e.truncate()).whitespace_normal().child(first))
+        .when(!!rest, (e) => e.child(div().flex_none().text_size(this.px(10)).text_color(t.muted).child(this.msgOpen ? "less ▴" : "more ▾"))))
+      .when(this.msgOpen && !!rest, (e) => e.child(v_flex().id("herdr-gitdiff-msg-body").max_h(this.px(180)).overflow_y_scroll()
+        .child(div().whitespace_normal().text_size(this.px(11)).text_color(t.muted).child(rest))));
+  }
+
+  // The picker: Uncommitted, and Committed, whose list of recent commits opens beside it on hover.
+  revMenu(t) {
+    const item = (id, active) => div().id(id).px(10).h(this.px(26)).flex().items_center().cursor_pointer().hover((s) => s.bg(t.hover)).when(active, (e) => e.bg(t.selected));
+    const first = item("rev-uncommitted", !this.rev).w(150).on_hover((h, cx) => { if (h && this.sub) { this.sub = false; cx.notify(); } })
+      .on_click((_e, cx) => this.pick(null, cx)).child("Uncommitted");
+    const second = h_flex().w(150).child(item("rev-committed", !!this.rev || this.sub).w_full().justify_between()
+      .on_hover((h, cx) => { if (h && !this.sub) { this.sub = true; cx.notify(); } })
+      .on_click((_e, cx) => { this.sub = true; cx.notify(); }).child("Committed").child(div().text_color(t.dim).child("›")));
+    const list = v_flex().w(260).rounded(6).border_1().border_color(t.border).bg(t.popover ?? t.background).py(4)
+      .children(this.commits.length ? this.commits.map((c) => item(`rev-${c.sha}`, c.sha === this.rev).gap(8)
+        .on_click((_e, cx) => this.pick(c.sha, cx))
+        .child(div().text_color(t.dim).flex_none().child(c.short)).child(div().min_w(0).truncate().child(c.subject))) : [div().px(10).py(4).text_color(t.dim).child("No commits")]);
+    return h_flex().absolute().top(40).left(14).items_start()
+      .child(v_flex().rounded(6).border_1().border_color(t.border).bg(t.popover ?? t.background).py(4).child(first).child(second))
+      .when(this.sub, (e) => e.child(div().w(4).h(1)).child(list));
   }
 
   // The line between the columns. Drag it to make the tree wider or narrower.
