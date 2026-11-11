@@ -35,7 +35,7 @@ fi
 
 [ -d "$HOME_DIR" ] || die "no Herdr app home at $HOME_DIR (start the app once, or set HERDR_APP_HOME)"
 ours "$DEST" || die "$DEST exists and isn't gitdiff's; not overwriting it"
-if command -v node >/dev/null; then node "$ROOT/tests/run.mjs" >/dev/null || die "tests failed (node tests/run.mjs)"; else say "node not found: skipping tests"; fi
+if command -v node >/dev/null; then (cd "$ROOT" && node --test tests/*.test.mjs >/dev/null) || die "tests failed (npm test)"; else say "node not found: skipping tests"; fi
 # Optional, but without it the colors fall back to a small lexer (js, py, sh only).
 if ! command -v bat >/dev/null 2>&1 && ! command -v batcat >/dev/null 2>&1; then
   say "bat not found: diffs will use the plain fallback. Install it with 'apt install bat' (batcat), 'brew install bat', or put it on the PATH the app's mods see."
@@ -45,7 +45,8 @@ BIN="${HERDR_APP_BIN:-$(command -v herdr-app 2>/dev/null || true)}"
 
 mkdir -p "$HOME_DIR/mods"
 rm -rf "$STAGE" && mkdir -p "$STAGE/gitdiff"
-cp -R "$SRC/." "$STAGE/gitdiff/"
+# Only the mod itself: the app writes its own jsconfig.json and *.d.ts next to it.
+for f in "$SRC"/*.js "$SRC"/mod.json; do cp "$f" "$STAGE/gitdiff/"; done
 
 if [ -n "$BIN" ]; then
   # A Windows binary needs a Windows path (wslpath when we're under WSL).
