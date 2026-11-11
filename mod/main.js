@@ -245,26 +245,31 @@ export default class GitDiff extends View {
         cx.stop_propagation();
         move(off + dx, cx);
       }));
-    const trackW = Math.max(vw - 16, 40);
-    const thumbW = wide ? Math.max(24, Math.round(trackW * vw / g.width)) : 0;
-    const thumbX = wide ? Math.round((trackW - thumbW) * (maxOff ? off / maxOff : 0)) : 0;
-    const bar = div().h(10).w_full().px(8).relative()
-      .child(div().absolute().left(8).right(8).top(2).h(6).rounded(3).bg(t.chrome))
-      .child(div().absolute().left(8 + thumbX).top(2).h(6).w(thumbW).rounded(3).bg(t.dim).cursor_pointer()
-        .on_mouse_down("left", (event, cx) => { this.drag = { id: g.id, startX: event.position.x, startOff: off }; cx.stop_propagation(); })
-        .on_mouse_up("left", (_event, cx) => { this.drag = null; cx.notify(); }))
-      .on_mouse_move((event, cx) => {
-        if (this.drag?.id !== g.id) return;
-        const span = trackW - thumbW;
-        if (span <= 0) return;
-        move(this.drag.startOff + ((event.position.x - this.drag.startX) * maxOff) / span, cx);
+    // The bar takes its length from the box (percentages), so it follows the panel's size;
+    // only the thumb's share needs the numbers.
+    const share = wide ? Math.max(0.04, Math.min(1, vw / g.width)) : 1;
+    const thumbAt = maxOff ? off / maxOff : 0;
+    let bar = div().h(10).w_full().relative()
+      .child(div().absolute().left(8).right(8).top(2).h(6).rounded(3).bg(t.chrome)
+        .child(div().absolute().left(`${(thumbAt * (1 - share) * 100).toFixed(2)}%`).w(`${(share * 100).toFixed(2)}%`).h_full().rounded(3).bg(t.muted)));
+    if (wide) {
+      bar = bar.on_mouse_down("left", (event, cx) => {
+        const b = event.bounds;
+        if (!b) return;
+        // Press anywhere: the thumb jumps under the pointer, then follows it.
+        const trackW = Math.max(b.width - 16, 1);
+        const frac = Math.min(Math.max((event.position.x - b.x - 8) / trackW, 0), 1);
+        const to = frac * maxOff;
+        this.drag = { id: g.id, startX: event.position.x, startOff: to, trackW };
+        move(to, cx);
+        cx.stop_propagation();
       })
-      .on_mouse_down("left", (event, cx) => {
-        // A press on the track jumps so the thumb centres on the pointer.
-        const p = event.local_position?.x ?? 0;
-        const span = Math.max(trackW - thumbW, 1);
-        move(((p - 8 - thumbW / 2) / span) * maxOff, cx);
-      });
+        .on_mouse_move((event, cx) => {
+          if (this.drag?.id !== g.id) return;
+          move(this.drag.startOff + ((event.position.x - this.drag.startX) * maxOff) / this.drag.trackW, cx);
+        })
+        .on_mouse_up("left", (_event, cx) => { this.drag = null; cx.notify(); });
+    }
     return div().w_full()
       .child(box)
       .when(wide, (e) => e.child(bar));
