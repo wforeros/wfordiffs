@@ -1,15 +1,16 @@
 // Changes panel: the changed files, each one opens inline into its diff
 // (line numbers, +/- tints, syntax colors). Read-only: no commits, no branches.
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
-import { View, div } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
-import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, appHome } from "herdr";
+import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, props } from "herdr";
 import { NUM_W, SIGN_W, CHAR_W, GUTTER_W } from "./metrics.js";
 import { EMPTY_TREE } from "./parse.js";
 import { langOf, tokens } from "./lexer.js";
 import { makeGit, msg } from "./git.js";
 import { markWords, splitMarks } from "./inline.js";
-import { parseConfig, tint, DEFAULTS } from "./config.js";
+import { parseConfig, tint, DEFAULTS, CFG_KEY } from "./config.js";
+import { settingsView } from "./settings-view.js";
 import { hscroll } from "./hscroll.js";
 import { makeHighlighter, attachColors } from "./highlight.js";
 
@@ -30,7 +31,8 @@ function location() {
 export default class GitDiff extends View {
   init(_props, cx) {
     this.files = []; this.open = new Set(); this.diffs = {};
-    this.cfg = { ...DEFAULTS }; // gitdiff.json in the app home: tint colors and strengths
+    this.cfg = { ...DEFAULTS }; // tint colors and strengths, from shared(); set in the gear window
+    if (props()?.settings) return; // the gear window: it only draws the settings
     this.wrap = false; // off: one row per line and a horizontal bar; on: long lines break
     this.offsets = {}; // per file id: sideways offset in pixels
     this.drag = null;  // { id, startX, startOff } while dragging a bar
@@ -59,8 +61,6 @@ export default class GitDiff extends View {
     cx.spawn(async (cx) => {
       try {
         const loc = location();
-        // Read each round, so editing gitdiff.json shows up within seconds.
-        this.cfg = parseConfig(await readTextFile(`${appHome()}/gitdiff.json`).catch(() => null));
         const next = await load(loc);
         this.error = next.error;
         this.root = next.root; this.base = next.base;
@@ -154,6 +154,8 @@ export default class GitDiff extends View {
 
   render(cx) {
     const t = theme();
+    this.cfg = parseConfig(shared(CFG_KEY));
+    if (props()?.settings) return settingsView(t, this.cfg);
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
     const groups = this.groups();
     const empty = this.error || (this.loading ? "Loading changes…" : this.root ? "No changes" : "No folder");
@@ -162,6 +164,10 @@ export default class GitDiff extends View {
         .child(div().font_semibold().child("Changes"))
         .child(div().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(`${this.files.length} files`))
         .child(div().flex_1())
+        .child(div().id("herdr-gitdiff-config").w(22).h(22).rounded(4).flex().items_center().justify_center().cursor_pointer().hover((s) => s.bg(t.hover))
+          .tooltip("Diff colors")
+          .on_click(() => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 400, props: { settings: true } }))
+          .child(svg("mods/herdr-gitdiff/icons/settings.svg").size(14).text_color(t.muted)))
         .child(div().id("herdr-gitdiff-wrap").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .when(this.wrap, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.wrap, (e) => e.text_color(t.muted))
           .on_click((_e, cx) => { this.wrap = !this.wrap; cx.notify(); }).child("wrap"))

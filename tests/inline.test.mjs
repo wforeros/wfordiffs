@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { diffRanges, markWords, splitMarks } from "../mod/inline.js";
-import { parseConfig, tint } from "../mod/config.js";
+import { parseConfig, tint, stepAmount } from "../mod/config.js";
 
 const cut = (text, ranges) => ranges.map(([s, e]) => text.slice(s, e));
 
@@ -45,4 +45,8 @@ test("config: defaults, validation and tint", () => {
   assert.deepEqual(c, { added: "#00ff00", removed: null, line: 0.09, word: 0.6 });
   assert.equal(tint("#00ff00", 1), "#00ff00ff");
   assert.equal(tint("#00ff00", 0), "#00ff0000");
+  assert.deepEqual(parseConfig({ added: "#112233" }), { added: "#112233", removed: null, line: 0.09, word: 0.38 });
+  assert.equal(stepAmount(0.38, 1), 0.43);
+  assert.equal(stepAmount(0.98, 1), 1);
+  assert.equal(stepAmount(0.02, -1), 0);
 });

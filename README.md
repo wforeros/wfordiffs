@@ -82,18 +82,10 @@ not saved. How it is built is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Inside a changed line, the exact words that changed get a stronger tint than the rest of
 the line (a `−` row followed by a `+` row are compared word by word; lines that share
-almost nothing are left as a whole-line change). To tune it, create `gitdiff.json` in the
-app home (`~/.config/herdr-app`); it is re-read every few seconds, no restart:
-
-```json
-{ "added": "#a6e3a1", "removed": "#f38ba8", "line": 0.09, "word": 0.4 }
-```
-
-| Key | Does | Default |
-|---|---|---|
-| `added` / `removed` | Color of the `+` and `−` lines (`#rrggbb`) | the theme's green / red |
-| `line` | Strength of the whole-line tint, 0 to 1 | `0.09` |
-| `word` | Strength of the changed-words tint, 0 to 1 | `0.38` |
+almost nothing are left as a whole-line change). The **gear** in the header opens a small window to pick the green and the red from a
+palette (or keep the theme's) and set how strong the line and the word tints are, with a
+live preview; the diffs behind it update as you click. Herdr saves the choice (`shared`),
+and **Reset** returns to the defaults.
 
 ## Behavior
 
