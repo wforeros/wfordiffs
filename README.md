@@ -67,6 +67,12 @@ Showing or hiding the panel is not a mod command (a hidden mod can't receive
 one). It's a layout command, `layout.toggle {"id": "panel"}`, bound in the
 person's `keys.json` (and in tmux-prefix). See the `dots` repo's `herdr/app`.
 
+## Long lines
+
+The list scrolls on both axes (a bar per side), and the header's **wrap**
+button turns break-on instead: long lines wrap onto more rows, keeping their
+colors. The choice is per panel copy, not saved.
+
 ## Behavior
 
 - git runs where the shown space lives: `on: "wsl"` for the WSL machine.
@@ -83,6 +89,8 @@ person's `keys.json` (and in tmux-prefix). See the `dots` repo's `herdr/app`.
   strings, comments, numbers, calls) for js/ts, python and shell. Block comments
   and multi-line strings stay plain.
 - No virtual list: very large diffs render every row.
+- Wrap breaks between tokens: a single very long token (a minified line, a long
+  URL) still needs the horizontal bar.
 - Spaces on Windows (no `wsl` machine) would run git on Windows; not tested.
 
 ## Tests
