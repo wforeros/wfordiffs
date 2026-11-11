@@ -175,12 +175,11 @@ export default class GitDiff extends View {
     cx.notify();
   }
 
-  // Full width, so the counts stay at the right edge; only code rows scroll sideways.
+  // Full width, so the counts stay at the right edge whatever a diff below does.
   fileRow(f, t) {
-    const vw = this.viewport || 320;
     const open = this.open.has(f.path), parts = f.path.split("/"), name = parts.pop();
     const color = f.status === "A" ? t.ansi2 : f.status === "D" || f.status === "U" ? t.ansi1 : t.blocked;
-    return h_flex().id(`f-${f.path}`).w(vw).h(28).px(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
+    return h_flex().id(`f-${f.path}`).w_full().h(28).px(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => this.toggle(f.path, cx))
       .child(div().w(10).text_size(10).text_color(t.dim).child(open ? "▾" : "▸"))
       .child(div().w(14).text_size(11).text_color(color).child(f.status))
@@ -199,31 +198,43 @@ export default class GitDiff extends View {
     // Wrap: the row grows taller and the tokens break at their own gaps. Otherwise it keeps
     // the widest row's width, and the list scrolls sideways.
     const body = this.wrap ? code.flex_1().min_w(0).flex_wrap().whitespace_normal() : code.flex_none();
-    return h_flex().w_full().when(!this.wrap, (e) => e.min_w(width)).when(this.wrap, (e) => e.min_h(20).py(1)).when(!this.wrap, (e) => e.h(20)).items_center().bg(tint ?? t.background)
+    return h_flex().w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).when(this.wrap, (e) => e.min_h(20).py(1)).when(!this.wrap, (e) => e.h(20)).items_center().bg(tint ?? t.background)
       .child(div().w(44).flex_none().text_right().pr(8).text_color(t.dim).child(row.o ?? ""))
       .child(div().w(44).flex_none().text_right().pr(8).text_color(t.dim).child(row.n ?? ""))
       .child(div().w(14).flex_none().text_color(mark).child(row.kind === " " ? "" : row.kind))
       .child(body);
   }
 
-  // One flat list: file rows, then the rows of each open file.
-  rows() {
-    const out = [];
-    for (const f of this.files) {
-      out.push({ key: `f:${f.path}`, file: f });
-      if (!this.open.has(f.path)) continue;
+  // One entry per file: its row, then — when open — the rows of its diff, in a box of
+  // their own so that file, and only that file, scrolls sideways.
+  groups() {
+    return this.files.map((f, i) => {
+      if (!this.open.has(f.path)) return { file: f };
       const body = this.diffs[f.path];
-      if (!body) out.push({ key: `m:${f.path}`, text: "Loading…" });
-      else body.forEach((row, i) => out.push({ key: `l:${f.path}:${i}`, row, path: f.path }));
-    }
-    return out;
+      if (!body) return { file: f, body: [{ kind: "@", text: "Loading…" }], width: 0, id: `gv-${i}` };
+      // What the widest row needs: two number gutters, the sign, then the text.
+      // shortcut: 9.6px per character is an estimate of the mono advance at the panel's
+      // zoom; if a bar shows on a file that fits (or the reverse), tune this number.
+      const width = Math.max(...body.map((r) => r.text.length * 9.6 + 110), 0);
+      return { file: f, body, width, id: `gv-${i}` };
+    });
+  }
+
+  // An open file: its rows in a box that scrolls sideways, with a bar only when the
+  // widest row really is wider than the panel (never while wrapping).
+  group(g, t) {
+    const overflow = !this.wrap && g.width > (this.viewport || 320);
+    const box = v_flex().id(g.id).w_full().when(!this.wrap, (e) => e.overflow_x_scroll())
+      .children(g.body.map((row) => this.codeRow(row, g.file.path, t, overflow ? g.width : 0)));
+    return div().w_full().relative()
+      .child(box)
+      .when(overflow, (e) => e.child(div().absolute().bottom_0().left_0().right_0().h(10).bg(t.chrome).border_t(1).border_color(t.border).child(Scrollbar.horizontal(g.id).mode("always"))));
   }
 
   render(cx) {
     const t = theme();
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
-    const rows = this.rows();
-    const width = Math.max(320, ...rows.map((r) => (r.row?.text?.length ?? 0) * 8 + 100));
+    const groups = this.groups();
     const empty = this.error || (this.loading ? "Loading changes…" : this.root ? "No changes" : "No folder");
     return v_flex().id("gitdiff").size_full().on_size_change((size, cx) => { if (size.width !== this.viewport) { this.viewport = size.width; cx.notify(); } }).min_h(0).bg(t.background).text_color(t.foreground).text_size(12).font_family(settings().font_family ?? "JetBrains Mono")
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
@@ -238,12 +249,12 @@ export default class GitDiff extends View {
       .child(div().flex_1().min_h(0).relative()
         .when(!this.files.length, (e) => e.child(div().p(12).text_color(t.dim).child(empty)))
         .when(this.files.length > 0, (e) => e
-          // Both bars, so a long line can be read either way (bar or the wrap toggle).
-          // shortcut: keep overflow_scroll plus one Scrollbar per axis; the single
+          // The list scrolls down only: the file rows keep their place (and their counts)
+          // while any one diff scrolls sideways on its own.
+          // shortcut: one overflow area plus one Scrollbar per axis; the single
           // overflow_scrollbar() call leaves this panel stuck on "could not be re-rendered".
-          .child(v_flex().id("gitdiff-list").absolute().inset_0().overflow_scroll()
-            .child(v_flex().when(this.wrap, (e) => e.w_full()).when(!this.wrap, (e) => e.w(Math.max(this.viewport || 320, width))).children(rows.map((r) => r.file ? this.fileRow(r.file, t) : r.row ? this.codeRow(r.row, r.path, t, width) : div().h(22).px(10).flex().items_center().text_color(t.dim).child(r.text)))))
-          .child(Scrollbar.vertical("gitdiff-list").mode("always").absolute().inset_0())
-          .when(!this.wrap, (e) => e.child(div().absolute().bottom_0().left_0().right_0().h(10).bg(t.chrome).border_t(1).border_color(t.border).child(Scrollbar.horizontal("gitdiff-list").mode("always"))))));
+          .child(v_flex().id("gitdiff-list").absolute().inset_0().overflow_y_scroll()
+            .child(v_flex().w_full().children(groups.flatMap((g) => (g.body ? [this.fileRow(g.file, t), this.group(g, t)] : [this.fileRow(g.file, t)])))))
+          .child(Scrollbar.vertical("gitdiff-list").mode("always").absolute().inset_0())));
   }
 }
