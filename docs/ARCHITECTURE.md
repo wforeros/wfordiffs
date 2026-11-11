@@ -10,6 +10,8 @@ mod/hscroll.js    one open file's sideways scrolling (bar, wheel, drag); state l
 mod/parse.js      pure: numstat, name-status and unified-diff parsing
 mod/ansi.js       pure: bat's ANSI output -> colored pieces
 mod/lexer.js      pure: the fallback lexer used when bat is missing
+mod/inline.js    pure: word-level marks inside a changed line (markWords, splitMarks)
+mod/config.js    pure: gitdiff.json (tint colors and strengths)
 mod/metrics.js    gutter widths and the per-character width estimate
 tests/            node:test, one file per module (npm test)
 ```

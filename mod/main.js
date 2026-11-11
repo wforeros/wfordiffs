@@ -3,11 +3,13 @@
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
-import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings } from "herdr";
+import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, appHome } from "herdr";
 import { NUM_W, SIGN_W, CHAR_W, GUTTER_W } from "./metrics.js";
 import { EMPTY_TREE } from "./parse.js";
 import { langOf, tokens } from "./lexer.js";
 import { makeGit, msg } from "./git.js";
+import { markWords, splitMarks } from "./inline.js";
+import { parseConfig, tint, DEFAULTS } from "./config.js";
 import { hscroll } from "./hscroll.js";
 import { makeHighlighter, attachColors } from "./highlight.js";
 
@@ -28,6 +30,7 @@ function location() {
 export default class GitDiff extends View {
   init(_props, cx) {
     this.files = []; this.open = new Set(); this.diffs = {};
+    this.cfg = { ...DEFAULTS }; // gitdiff.json in the app home: tint colors and strengths
     this.wrap = false; // off: one row per line and a horizontal bar; on: long lines break
     this.offsets = {}; // per file id: sideways offset in pixels
     this.drag = null;  // { id, startX, startOff } while dragging a bar
@@ -56,6 +59,8 @@ export default class GitDiff extends View {
     cx.spawn(async (cx) => {
       try {
         const loc = location();
+        // Read each round, so editing gitdiff.json shows up within seconds.
+        this.cfg = parseConfig(await readTextFile(`${appHome()}/gitdiff.json`).catch(() => null));
         const next = await load(loc);
         this.error = next.error;
         this.root = next.root; this.base = next.base;
@@ -83,6 +88,7 @@ export default class GitDiff extends View {
       let rows;
       try {
         rows = await diffFor(loc, f, base);
+        markWords(rows);
         attachColors(rows, await highlight(loc, f, base).catch(() => null));
       } catch (e) { rows = msg(`Cannot load diff: ${e?.message ?? e}`); }
       if (fp === this.fp) this.diffs[path] = rows;
@@ -111,17 +117,20 @@ export default class GitDiff extends View {
 
   codeRow(row, path, t, width) {
     if (row.kind === "@") return div().h(22).w_full().px(10).flex().items_center().bg(t.raised).text_color(t.dim).truncate().child(row.text);
-    const tint = row.kind === "+" ? `${t.ansi2}18` : row.kind === "-" ? `${t.ansi1}18` : null;
-    const mark = row.kind === "+" ? t.ansi2 : row.kind === "-" ? t.ansi1 : t.dim;
+    const base = row.kind === "+" ? this.cfg.added ?? t.ansi2 : row.kind === "-" ? this.cfg.removed ?? t.ansi1 : null;
+    const lineBg = base ? tint(base, this.cfg.line) : null, wordBg = base ? tint(base, this.cfg.word) : null;
+    const mark = base ?? t.dim;
     const colors = { dim: t.dim, ansi1: t.ansi1, ansi2: t.ansi2, ansi4: t.ansi4, ansi5: t.ansi5 };
     const pieces = row.pieces ?? tokens(row.text, langOf(path), colors);
-    const code = h_flex().children(pieces.map(([s, c]) => div().text_color(c ?? t.foreground).when(this.wrap, (e) => e.whitespace_normal()).child(s)));
+    // The words that changed inside the line get a stronger tint of their own.
+    const code = h_flex().children(splitMarks(pieces, row.marks).map(([s, c, hit]) => div().text_color(c ?? t.foreground)
+      .when(hit, (e) => e.bg(wordBg).rounded(2)).when(this.wrap, (e) => e.whitespace_normal()).child(s)));
     // Wrap: the row grows taller and the tokens break at their own gaps. Otherwise it keeps
     // the widest row's width, and the list scrolls sideways.
     const body = this.wrap ? code.flex_1().min_w(0).flex_wrap().whitespace_normal() : code.flex_none();
     // Wrapped rows line up on their first line: the numbers sit at the top, not centred
     // against the whole wrapped block.
-    return h_flex().w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).bg(tint ?? t.background)
+    return h_flex().w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).bg(lineBg ?? t.background)
       .when(this.wrap, (e) => e.min_h(20).py(1).items_start()).when(!this.wrap, (e) => e.h(20).items_center())
       // shortcut: the gutter fits three digits; a four-digit line number in a big file is clipped.
       .child(div().w(NUM_W).flex_none().text_right().pr(4).text_color(t.dim).child(row.o ?? ""))
