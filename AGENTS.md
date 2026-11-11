@@ -3,7 +3,13 @@
 A Herdr mod: a Changes panel (changed files, each opening into its diff). Layout and
 how the pieces fit: `docs/ARCHITECTURE.md`. User docs: `README.md`.
 
-- `mod/` is what gets installed (`./install.sh`); keep it to `*.js` and `mod.json`.
+- `mod/` is what gets installed (`./install.sh`); keep it to `*.js`, `mod.json` and
+  `icons/` (`*.svg` plus `LICENSE-lucide.txt`, which ships with them).
+- One name everywhere: the repo, the installed mod (`mods/herdr-gitdiff`, `DEST`
+  in `install.sh`), the `"title"` in `mod.json` (the install's guard reads it), the
+  `content.mod` in a layout, the `herdr-gitdiff.<command>` bindings in `keys.json`,
+  and the assets, which are addressed from the app home: an icon is
+  `svg("mods/herdr-gitdiff/icons/x.svg")`.
 - `parse.js`, `ansi.js`, `lexer.js` stay pure (no `herdr` imports). `git.js` and
   `highlight.js` take `exec` & co. as arguments. Keep it that way so `npm test` covers them.
 - Tests: `npm test` (node:test, one file per module).
