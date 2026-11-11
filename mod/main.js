@@ -105,14 +105,16 @@ export default class GitDiff extends View {
   // Full width, so the counts stay at the right edge whatever a diff below does.
   fileRow(f, t) {
     const open = this.open.has(f.path), parts = f.path.split("/"), name = parts.pop();
-    const color = f.status === "A" ? t.ansi2 : f.status === "D" || f.status === "U" ? t.ansi1 : t.blocked;
+    const added = this.cfg.added ?? t.ansi2, removed = this.cfg.removed ?? t.ansi1;
+    const color = f.status === "A" ? added : f.status === "D" || f.status === "U" ? removed : t.blocked;
     return h_flex().id(`f-${f.path}`).w_full().h(28).px(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => this.toggle(f.path, cx))
       .child(div().w(10).text_size(10).text_color(t.dim).child(open ? "▾" : "▸"))
       .child(div().w(14).text_size(11).text_color(color).child(f.status))
       .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name)))
-      .child(f.binary ? div().w(112).flex_none().text_right().text_size(11).text_color(t.dim).child("binary")
-        : h_flex().flex_none().gap(6).justify_end().child(div().w(50).text_right().text_size(11).text_color(t.ansi2).child(`+${f.add}`)).child(div().w(50).text_right().text_size(11).text_color(t.ansi1).child(`−${f.del}`)));
+      .child(f.binary ? div().flex_none().text_size(11).text_color(t.dim).child("binary")
+        // Close together, like the totals in the header.
+        : h_flex().flex_none().gap(6).child(div().text_size(11).text_color(added).child(`+${f.add}`)).child(div().text_size(11).text_color(removed).child(`−${f.del}`)));
   }
 
   codeRow(row, path, t, width) {
@@ -171,8 +173,8 @@ export default class GitDiff extends View {
         .child(div().id("herdr-gitdiff-wrap").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .when(this.wrap, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.wrap, (e) => e.text_color(t.muted))
           .on_click((_e, cx) => { this.wrap = !this.wrap; cx.notify(); }).child("wrap"))
-        .child(div().text_size(11).text_color(t.ansi2).child(`+${add}`))
-        .child(div().text_size(11).text_color(t.ansi1).child(`−${del}`)))
+        .child(div().text_size(11).text_color(this.cfg.added ?? t.ansi2).child(`+${add}`))
+        .child(div().text_size(11).text_color(this.cfg.removed ?? t.ansi1).child(`−${del}`)))
       .child(div().flex_1().min_h(0).relative()
         .when(!this.files.length, (e) => e.child(div().p(12).text_color(t.dim).child(empty)))
         .when(this.files.length > 0, (e) => e
