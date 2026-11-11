@@ -4,6 +4,31 @@ A Changes panel for the [Herdr](https://herdr.dev) desktop app: the changed
 files of the shown repo, each one opening inline into its diff with line
 numbers, `+`/`−` tints and syntax colors. Read-only: no commits, no branches.
 
+## Requirements
+
+Required:
+
+- **Herdr app** (`herdr-app`). Without it there's no mod.
+- **git**, on the machine where the shown space lives.
+- **`sh`** (POSIX). Used for two things: starting `bat` with
+  `COLORTERM=truecolor`, and piping `git show HEAD:<file>` into `bat` on stdin.
+  It's there on Linux, macOS and WSL; on a native Windows space it may be
+  missing from the core's PATH.
+
+Optional:
+
+- **`bat`**: the good highlighting, with themes and every language it knows.
+  Without it the mod still works, but falls back to the built-in lexer, which
+  only colors js/ts, python and shell; JSON, `.zshrc`, `.md`, `.lua` and the
+  rest come out in one color. Marked as `shortcut:` in `mod/main.js`.
+- **`node`**: only for the tests. `install.sh` skips them when it's missing.
+- **`wslpath`**: only when installing from WSL against the Windows app.
+
+Where it runs: a mod's `exec` runs on the app's host, that is, Windows. When
+that space has no `wsl` machine, `git` and `bat` must exist on Windows. With a
+`wsl` space (the tested case) both run in WSL, and `bat` has to be installed
+there.
+
 ## Install
 
 ```sh
@@ -23,6 +48,25 @@ that holds the Changes panel:
 { "id": "changes", "type": "block", "content": { "mod": "gitdiff" } }
 ```
 
+## Shortcuts
+
+The mod exposes three commands. Bind them in `keys.json` as `gitdiff.<command>`;
+they reach the mod only while it's shown.
+
+| Command | Does |
+|---|---|
+| `refresh` | Reloads the file list now. |
+| `expand-all` | Opens every changed file (at most 50). |
+| `collapse-all` | Closes them all. |
+
+```json
+{ "global": { "alt-r": "gitdiff.refresh", "alt-e": "gitdiff.expand-all", "alt-shift-e": "gitdiff.collapse-all" } }
+```
+
+Showing or hiding the panel is not a mod command (a hidden mod can't receive
+one). It's a layout command, `layout.toggle {"id": "panel"}`, bound in the
+person's `keys.json` (and in tmux-prefix). See the `dots` repo's `herdr/app`.
+
 ## Behavior
 
 - git runs where the shown space lives: `on: "wsl"` for the WSL machine.
@@ -31,9 +75,13 @@ that holds the Changes panel:
 
 ## Limits
 
-- Syntax highlighting is a small per-line lexer (keywords, strings, comments,
-  numbers, calls) for js/ts, python and shell. Block comments and multi-line
-  strings stay plain.
+- Colors are always Catppuccin (Mocha, or Latte when the app is in light
+  appearance), even if Herdr uses another theme.
+- Every opened file runs up to two `bat` calls, so *expand-all* on many files
+  takes longer.
+- Without `bat`, syntax highlighting is a small per-line lexer (keywords,
+  strings, comments, numbers, calls) for js/ts, python and shell. Block comments
+  and multi-line strings stay plain.
 - No virtual list: very large diffs render every row.
 - Spaces on Windows (no `wsl` machine) would run git on Windows; not tested.
 
