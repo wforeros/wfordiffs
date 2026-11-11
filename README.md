@@ -69,9 +69,16 @@ person's `keys.json` (and in tmux-prefix). See the `dots` repo's `herdr/app`.
 
 ## Long lines
 
-The list scrolls on both axes (a bar per side), and the header's **wrap**
-button turns break-on instead: long lines wrap onto more rows, keeping their
-colors. The choice is per panel copy, not saved.
+The list scrolls on both axes: a vertical bar on the right, and a horizontal
+one along the bottom, always visible (a track, with the thumb sized to the
+content). The header's **wrap** button trades it for breaking: long lines wrap
+onto more rows, keeping their colors, and the bottom bar goes away. The choice
+is per panel copy, not saved.
+
+Two layout notes, if you touch the render: the content is as wide as the widest
+row (a flex column stretches its children, so `w_full` alone never overflows and
+the horizontal bar would find nothing to scroll); and mix `w_full` for wrap with
+a plain width for no-wrap, because a computed width in wrap mode fails to render.
 
 ## Behavior
 
