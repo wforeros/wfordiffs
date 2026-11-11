@@ -1,4 +1,4 @@
-// Turns a selection of diff rows into the message sent to an agent. Pure: no Herdr imports.
+// Turns a selection of diff rows into a reference to paste in the chat. Pure: no Herdr imports.
 
 // The line a row stands for: new-file number for "+" and context rows, old-file number for "-".
 const lineOf = (row) => (row.kind === "-" ? row.o : row.n);
@@ -9,20 +9,11 @@ export function selectedRows(rows, from, to) {
   return rows.slice(a, b + 1).filter((r) => r.kind !== "@");
 }
 
-// "path:12-14" (new-file lines; old-file lines are marked "was ..." when the range has only deletions).
-export function reference(path, picked) {
+// "<full path>#L12" or "<full path>#L12-L14". New-file lines; a selection of only
+// deleted lines falls back to their old-file numbers.
+export function reference(fullPath, picked) {
   const news = picked.filter((r) => r.kind !== "-").map(lineOf);
-  if (news.length) {
-    const lo = Math.min(...news), hi = Math.max(...news);
-    return `${path}:${lo === hi ? lo : `${lo}-${hi}`}`;
-  }
-  const olds = picked.map(lineOf);
-  const lo = Math.min(...olds), hi = Math.max(...olds);
-  return `${path} (removed, was line${lo === hi ? ` ${lo}` : `s ${lo}-${hi}`})`;
-}
-
-// The text for the agent: where, the code with its diff marks, then the person's words.
-export function buildMessage(path, picked, note) {
-  const code = picked.map((r) => `${r.kind === " " ? " " : r.kind}${r.text}`).join("\n");
-  return `${reference(path, picked)}\n\`\`\`diff\n${code}\n\`\`\`\n${note.trim()}`;
+  const lines = news.length ? news : picked.map(lineOf);
+  const lo = Math.min(...lines), hi = Math.max(...lines);
+  return `${fullPath}#L${lo}${hi === lo ? "" : `-L${hi}`}`;
 }

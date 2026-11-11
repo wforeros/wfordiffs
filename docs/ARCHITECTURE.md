@@ -13,7 +13,7 @@ mod/lexer.js      pure: the fallback lexer used when bat is missing
 mod/inline.js    pure: word-level marks inside a changed line (markWords, splitMarks)
 mod/config.js    pure: tint colors and strengths (kept in shared("gitdiff.cfg"))
 mod/settings-view.js  the gear window: palette, steppers, preview (same mod, props().settings)
-mod/ask.js       pure: selected rows -> reference and the message for the agent
+mod/ask.js       pure: selected rows -> "<path>#L1-L3" reference
 mod/metrics.js    gutter widths and the per-character width estimate
 tests/            node:test, one file per module (npm test)
 ```
