@@ -5,108 +5,24 @@ import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
 import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings } from "herdr";
 import { NUM_W, SIGN_W, CHAR_W, GUTTER_W } from "./metrics.js";
-import { EMPTY_TREE, parseNumstat, parseNameStatus, parseDiff } from "./parse.js";
-import { parseAnsi } from "./ansi.js";
+import { EMPTY_TREE } from "./parse.js";
 import { langOf, tokens } from "./lexer.js";
+import { makeGit, msg } from "./git.js";
+import { hscroll } from "./hscroll.js";
+import { makeHighlighter, attachColors } from "./highlight.js";
 
-// Reads write nothing under .git (no index refresh or lock), so the folder watch stays quiet.
-const GIT = ["--no-optional-locks", "-c", "core.fsmonitor=false", "-c", "diff.autoRefreshIndex=false", "-c", "core.quotepath=off"];
-const LIMIT = 1000;
+const { load, diffFor } = makeGit({ exec, readTextFile });
+const { highlight } = makeHighlighter({ exec, settings });
+
 const POLL_MS = 5000;
 // shortcut: expand-all opens at most this many files, each one is a git diff call; raise it if you need more.
 const EXPAND_MAX = 50;
-// The core on wsl starts with a minimal PATH (no linuxbrew), so the usual spots are tried in turn.
-// shortcut: bat is the only colorer; without it the built-in lexer (js, py, sh) is used.
-const BAT = ["bat", "batcat", "/home/linuxbrew/.linuxbrew/bin/bat", "/usr/bin/bat", "/usr/bin/batcat"];
 
 function location() {
   const space = spaces().find((s) => s.active), f = focused();
   const pane = f?.pane ? panes().find((p) => p.pane === f.pane) : null;
   const on = f?.pane === null ? (f.terminal?.includes("/") ? f.terminal.split("/")[0] : null) : space?.machine ?? null;
   return { cwd: pane?.cwd || f?.cwd || space?.folder, on };
-}
-const msg = (text) => [{ kind: "@", text }];
-
-async function load(loc) {
-  const top = await exec("git", [...GIT, "rev-parse", "--show-toplevel"], { cwd: loc.cwd, on: loc.on });
-  if (top.code !== 0) return { root: null, base: EMPTY_TREE, files: [], error: "Not a git repository" };
-  const g = { cwd: top.stdout.trim(), on: loc.on };
-  const run = (args) => exec("git", [...GIT, ...args], g);
-  const head = await run(["rev-parse", "--verify", "-q", "HEAD"]);
-  const base = head.code === 0 ? "HEAD" : EMPTY_TREE;
-  const [num, ns, others] = await Promise.all([
-    run(["diff", base, "--numstat", "-z", "--no-renames"]),
-    run(["diff", base, "--name-status", "-z", "--no-renames"]),
-    run(["ls-files", "--others", "--exclude-standard", "-z"]),
-  ]);
-  const status = parseNameStatus(ns.stdout);
-  const files = parseNumstat(num.stdout).map((f) => ({ ...f, status: status[f.path] ?? "M" }));
-  const untracked = await Promise.all(others.stdout.split("\0").filter(Boolean).slice(0, LIMIT).map(async (path) => {
-    const text = await readTextFile(`${g.cwd}/${path}`, { on: g.on });
-    const binary = text?.includes("\0") ?? false;
-    const lines = text === null || binary ? 0 : text.split("\n").length - Number(text.endsWith("\n"));
-    return { path, add: lines, del: 0, binary, status: "A", untracked: true };
-  }));
-  return { root: g.cwd, base, files: [...files, ...untracked], error: null };
-}
-
-async function diffFor(loc, f, base) {
-  if (f.binary) return msg("Binary file");
-  if (f.untracked) {
-    const text = await readTextFile(`${loc.cwd}/${f.path}`, { on: loc.on });
-    if (text === null) return msg("Cannot read this file");
-    const lines = text.split("\n");
-    if (lines.at(-1) === "") lines.pop();
-    return parseDiff(`@@ -0,0 +1,${lines.length} @@\n` + lines.map((l) => `+${l}`).join("\n"));
-  }
-  const r = await exec("git", [...GIT, "diff", base, "--no-color", "--no-ext-diff", "-U3", "--", f.path], { cwd: loc.cwd, on: loc.on });
-  if (r.code !== 0) return msg(r.stderr.trim() || "git diff failed");
-  return parseDiff(r.stdout);
-}
-
-// bat's path on this machine, looked up once per machine ("" when there's none).
-// Cache the promise, not the answer: several diffs ask at once.
-const batCache = {};
-function batFor(on) {
-  const key = on ?? "";
-  return (batCache[key] ??= (async () => {
-    for (const bin of BAT) {
-      try {
-        const r = await exec(bin, ["--version"], { on });
-        if (r.code === 0) return bin;
-      } catch { /* not on this PATH */ }
-    }
-    return "";
-  })());
-}
-
-// Colored lines of the new file and of the HEAD file, as bat sees them whole (multi-line strings and comments right).
-async function highlight(loc, f, base) {
-  const bat = await batFor(loc.on);
-  if (!bat) return null;
-  const theme = settings().dark === false ? "Catppuccin Latte" : "Catppuccin Mocha";
-  const out = {};
-  // COLORTERM: without it bat paints 256-colour codes, not the theme's exact colors.
-  if (f.status !== "D") {
-    const r = await exec("sh", ["-c", 'COLORTERM=truecolor exec "$@"', "sh", bat, "--color=always", "-pp", "--tabs=4", "--wrap=never", "--theme", theme, "--", f.path], { cwd: loc.cwd, on: loc.on });
-    if (r.code === 0) out.new = parseAnsi(r.stdout);
-  }
-  if (!f.untracked && f.status !== "A" && base !== EMPTY_TREE) {
-    const r = await exec("sh", ["-c", 'git --no-optional-locks show "$1" | COLORTERM=truecolor "$2" --color=always -pp --tabs=4 --wrap=never --theme "$3" --file-name "$4"', "sh", `HEAD:${f.path}`, bat, theme, f.path], { cwd: loc.cwd, on: loc.on });
-    if (r.code === 0) out.old = parseAnsi(r.stdout);
-  }
-  return out;
-}
-
-// Puts bat's colors on each row, and only when bat's text is the row's text (else the lexer draws it).
-function attachColors(rows, hl) {
-  if (!hl) return;
-  for (const r of rows) {
-    if (r.kind === "@") continue;
-    const side = r.kind === "-" ? hl.old : hl.new, line = r.kind === "-" ? r.o : r.n;
-    const pieces = side?.[line - 1];
-    if (pieces && pieces.map((p) => p[0]).join("") === r.text) r.pieces = pieces;
-  }
 }
 
 export default class GitDiff extends View {
@@ -227,55 +143,6 @@ export default class GitDiff extends View {
     });
   }
 
-  // An open file: its rows shift sideways under a clip of their own, driven by the wheel,
-  // a click on the bar or a drag of it. No nested scroll area: a second one on top of the
-  // vertical list made a plain wheel move both and the panel drift diagonally.
-  group(g, t) {
-    const vw = this.viewport || 320;
-    const maxOff = this.wrap ? 0 : Math.max(0, g.width - vw);
-    const off = Math.min(Math.max(this.offsets[g.id] ?? 0, 0), maxOff);
-    const wide = maxOff > 0;
-    const move = (to, cx) => { this.offsets[g.id] = Math.min(Math.max(to, 0), maxOff); cx.notify(); };
-    const rows = v_flex().w_full().when(off > 0, (e) => e.ml(-off))
-      .children(g.body.map((row) => this.codeRow(row, g.file.path, t, wide ? g.width : 0)));
-    const box = div().w_full().overflow_hidden().child(rows)
-      .when(wide, (e) => e.on_scroll_wheel((event, cx) => {
-        // A sideways wheel, or a vertical one with shift; a plain vertical wheel is the list's.
-        const dx = Math.abs(event.delta.x) > 0 ? event.delta.x : (event.modifiers.shift ? event.delta.y : 0);
-        if (!dx) return;
-        cx.stop_propagation();
-        move(off + dx, cx);
-      }));
-    // The bar takes its length from the box (percentages), so it follows the panel's size;
-    // only the thumb's share needs the numbers.
-    const share = wide ? Math.max(0.04, Math.min(1, vw / g.width)) : 1;
-    const thumbAt = maxOff ? off / maxOff : 0;
-    let bar = div().h(10).w_full().relative()
-      .child(div().absolute().left(8).right(8).top(2).h(6).rounded(3).bg(t.chrome)
-        .child(div().absolute().left(`${(thumbAt * (1 - share) * 100).toFixed(2)}%`).w(`${(share * 100).toFixed(2)}%`).h_full().rounded(3).bg(t.muted)));
-    if (wide) {
-      bar = bar.on_mouse_down("left", (event, cx) => {
-        const b = event.bounds;
-        if (!b) return;
-        // Press anywhere: the thumb jumps under the pointer, then follows it.
-        const trackW = Math.max(b.width - 16, 1);
-        const frac = Math.min(Math.max((event.position.x - b.x - 8) / trackW, 0), 1);
-        const to = frac * maxOff;
-        this.drag = { id: g.id, startX: event.position.x, startOff: to, trackW };
-        move(to, cx);
-        cx.stop_propagation();
-      })
-        .on_mouse_move((event, cx) => {
-          if (this.drag?.id !== g.id) return;
-          move(this.drag.startOff + ((event.position.x - this.drag.startX) * maxOff) / this.drag.trackW, cx);
-        })
-        .on_mouse_up("left", (_event, cx) => { this.drag = null; cx.notify(); });
-    }
-    return div().w_full()
-      .child(box)
-      .when(wide, (e) => e.child(bar));
-  }
-
   render(cx) {
     const t = theme();
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
@@ -299,7 +166,7 @@ export default class GitDiff extends View {
           // shortcut: one overflow area plus one Scrollbar per axis; the single
           // overflow_scrollbar() call leaves this panel stuck on "could not be re-rendered".
           .child(v_flex().id("gitdiff-list").absolute().inset_0().overflow_y_scroll()
-            .child(v_flex().w_full().children(groups.flatMap((g) => (g.body ? [this.fileRow(g.file, t), this.group(g, t)] : [this.fileRow(g.file, t)])))))
+            .child(v_flex().w_full().children(groups.flatMap((g) => (g.body ? [this.fileRow(g.file, t), hscroll(this, g, t)] : [this.fileRow(g.file, t)])))))
           .child(Scrollbar.vertical("gitdiff-list").mode("always").absolute().inset_0())));
   }
 }
