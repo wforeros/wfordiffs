@@ -75,7 +75,9 @@ counts stay at the right edge whatever a diff below does.
 A file that is open and holds a line wider than the panel gets a horizontal bar
 of its own, along the bottom of *that* file: sideways wheel (or shift+wheel, for
 a mouse), drag its thumb, or click the track to jump. A file whose lines fit
-gets none, and the other files are unaffected. A plain vertical wheel always
+gets none, and the other files are unaffected. The bar takes its length from the
+panel (percentages, not pixels), so resizing the panel or the tab resizes it, and
+a press jumps the thumb under the pointer before dragging. A plain vertical wheel always
 scrolls the list: the sideways motion is the mod's own, not a second scroll area
 on top of the list, which made both move at once and the panel drift diagonally. The header's **wrap** button drops all those
 bars and breaks long lines onto more rows instead, keeping their colors; the
