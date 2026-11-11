@@ -4,7 +4,9 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseNumstat, parseNameStatus, parseDiff, langOf, tokens, parseAnsi, xterm256 } from "../mod/lib.js";
+import { parseNumstat, parseNameStatus, parseDiff } from "../mod/parse.js";
+import { langOf, tokens } from "../mod/lexer.js";
+import { parseAnsi, xterm256 } from "../mod/ansi.js";
 
 const git = (cwd, ...args) => execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd, encoding: "utf8", maxBuffer: 1e8 });
 const colors = { dim: "D", ansi1: "R", ansi2: "G", ansi4: "F", ansi5: "K" };

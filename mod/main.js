@@ -5,7 +5,9 @@ import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
 import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings } from "herdr";
 import { NUM_W, SIGN_W, CHAR_W, GUTTER_W } from "./metrics.js";
-import { EMPTY_TREE, parseNumstat, parseNameStatus, parseDiff, parseAnsi, langOf, tokens } from "./lib.js";
+import { EMPTY_TREE, parseNumstat, parseNameStatus, parseDiff } from "./parse.js";
+import { parseAnsi } from "./ansi.js";
+import { langOf, tokens } from "./lexer.js";
 
 // Reads write nothing under .git (no index refresh or lock), so the folder watch stays quiet.
 const GIT = ["--no-optional-locks", "-c", "core.fsmonitor=false", "-c", "diff.autoRefreshIndex=false", "-c", "core.quotepath=off"];
