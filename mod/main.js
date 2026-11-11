@@ -2,9 +2,10 @@
 // (line numbers, +/- tints, syntax colors). Read-only: no commits, no branches.
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex, Scrollbar } from "gpui-base";
-import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, props } from "herdr";
-import { NUM_W, SIGN_W, CHAR_W, GUTTER_W } from "./metrics.js";
+import { v_flex, h_flex, Scrollbar, InputState, Input } from "gpui-base";
+import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, props, agents } from "herdr";
+import { selectedRows, reference, buildMessage } from "./ask.js";
+import { ADD_W, NUM_W, SIGN_W, CHAR_W, GUTTER_W } from "./metrics.js";
 import { EMPTY_TREE } from "./parse.js";
 import { langOf, tokens } from "./lexer.js";
 import { makeGit, msg } from "./git.js";
@@ -41,6 +42,11 @@ export default class GitDiff extends View {
     this.drag = null;  // { id, startX, startOff } while dragging a bar
     this.viewport = 0; // the panel's width, to size each file's bar
     this.base = EMPTY_TREE; this.root = null; this.loc = null; this.fp = ""; this.error = null; this.loading = true; this.busy = false;
+    // Asking the agent about lines: sel = { path, from, to } (row indexes of that file's diff).
+    this.sel = null; this.hover = null; this.dragging = false; this.targetAddr = null; this.status = "";
+    this.note = InputState.new({ placeholder: "Ask or request a change on these lines…" });
+    this.note.on("submit", (_e, cx) => this.send(cx));
+    this.note.on("change", (_e, cx) => cx.notify());
     this.refresh(cx);
     cx.timer.every(POLL_MS, (cx) => this.refresh(cx));
     // Key commands from keys.json ("herdr-gitdiff.<command>"); they reach this copy only while it's shown.
@@ -105,6 +111,55 @@ export default class GitDiff extends View {
     cx.notify();
   }
 
+  // The agent a question goes to: the one picked, else the focused one, else the first.
+  target() {
+    const list = agents();
+    return list.find((a) => a.address === this.targetAddr) ?? list.find((a) => a.focused) ?? list[0] ?? null;
+  }
+
+  nextTarget(cx) {
+    const list = agents(), cur = this.target();
+    if (list.length > 1) this.targetAddr = list[(list.findIndex((a) => a.address === cur?.address) + 1) % list.length].address;
+    cx.notify();
+  }
+
+  async send(cx) {
+    const s = this.sel, rows = s && this.diffs[s.path], a = this.target(), note = this.note.value();
+    if (!rows || !a || !note.trim()) return;
+    const text = buildMessage(s.path, selectedRows(rows, s.from, s.to), note);
+    this.status = "Sending…"; cx.notify();
+    try {
+      // hc may not be on the minimal PATH of the core: fall back to ~/.local/bin.
+      const r = await exec("sh", ["-c", 'H=$(command -v hc || echo "$HOME/.local/bin/hc"); exec "$H" send "$@"', "sh", a.address, text], { cwd: this.loc?.cwd, on: this.loc?.on });
+      if (r.code !== 0) throw new Error(r.stderr.trim() || "hc send failed");
+      this.sel = null; this.note.set_value("");
+      this.status = `Sent to ${a.app ?? a.title}`;
+      cx.timer.after(3000, (cx) => { this.status = ""; cx.notify(); });
+    } catch (e) { this.status = `Could not send: ${e?.message ?? e}`; }
+    cx.notify();
+  }
+
+  // The bar under the list while lines are selected: what, to whom, the words, send.
+  composer(t) {
+    const s = this.sel, rows = s && this.diffs[s.path], picked = rows ? selectedRows(rows, s.from, s.to) : [];
+    if (!picked.length) return null;
+    const a = this.target(), ready = a && this.note.value().trim() && !this.status.startsWith("Sending");
+    const btn = (id, label, on, enabled = true) => div().id(id).px(8).py(3).rounded(5).border_1().border_color(t.border).text_size(11)
+      .when(enabled, (e) => e.cursor_pointer().hover((x) => x.bg(t.hover)).on_click(on)).when(!enabled, (e) => e.text_color(t.dim)).child(label);
+    return v_flex().flex_none().border_t(1).border_color(t.border).bg(t.raised).p(8).gap(6)
+      .child(h_flex().items_center().gap(8)
+        .child(div().flex_1().min_w(0).truncate().text_size(11).text_color(t.muted).child(reference(s.path, picked)))
+        .child(div().id("ask-target").text_size(11).text_color(t.muted).cursor_pointer().hover((x) => x.text_color(t.foreground))
+          .tooltip("Click to change the agent").on_click((_e, cx) => this.nextTarget(cx))
+          .child(a ? `→ ${a.app ?? a.title} · ${a.tab_name}` : "no agent running"))
+        .child(div().id("ask-close").px(4).cursor_pointer().text_color(t.muted).hover((x) => x.text_color(t.foreground))
+          .on_click((_e, cx) => { this.sel = null; cx.notify(); }).child("✕")))
+      .child(h_flex().gap(6).items_center()
+        .child(Input.new(this.note).flex_1().h(30).px(8).rounded(6).border_1().border_color(t.input ?? t.border).bg(t.background).text_size(12).text_color(t.foreground))
+        .child(btn("ask-send", "Send", (_e, cx) => this.send(cx), !!ready)))
+      .when(!!this.status, (e) => e.child(div().text_size(11).text_color(t.muted).child(this.status)));
+  }
+
   px(n) { return Math.round(n * this.k); }
 
   // Full width, so the counts stay at the right edge whatever a diff below does.
@@ -123,11 +178,17 @@ export default class GitDiff extends View {
         : h_flex().flex_none().gap(6).child(div().text_size(this.px(11)).text_color(added).child(`+${f.add}`)).child(div().text_size(this.px(11)).text_color(removed).child(`−${f.del}`)));
   }
 
-  codeRow(row, path, t, width) {
+  codeRow(row, path, t, width, i) {
     if (row.kind === "@") return div().h(this.px(22)).w_full().px(10).flex().items_center().bg(t.raised).text_color(t.dim).truncate().child(row.text);
     const base = row.kind === "+" ? this.cfg.added ?? t.ansi2 : row.kind === "-" ? this.cfg.removed ?? t.ansi1 : null;
     const lineBg = base ? tint(base, this.cfg.line) : null, wordBg = base ? tint(base, this.cfg.word) : null;
     const mark = base ?? t.dim;
+    const key = `${path}#${i}`;
+    const s = this.sel, picked = s?.path === path && i >= Math.min(s.from, s.to) && i <= Math.max(s.from, s.to);
+    const plus = div().id(`add-${key}`).w(this.px(ADD_W)).flex_none().flex().items_center().justify_center().cursor_pointer()
+      .text_color(t.accent ?? t.muted).font_semibold().tooltip("Ask the agent about this line (drag for several)")
+      .on_mouse_down("left", (_e, cx) => { this.sel = { path, from: i, to: i }; this.dragging = true; this.status = ""; cx.stop_propagation(); cx.notify(); })
+      .child(picked || this.hover === key ? "+" : "");
     const colors = { dim: t.dim, ansi1: t.ansi1, ansi2: t.ansi2, ansi4: t.ansi4, ansi5: t.ansi5 };
     const pieces = row.pieces ?? tokens(row.text, langOf(path), colors);
     // The words that changed inside the line get a stronger tint of their own.
@@ -138,9 +199,17 @@ export default class GitDiff extends View {
     const body = this.wrap ? code.flex_1().min_w(0).flex_wrap().whitespace_normal() : code.flex_none();
     // Wrapped rows line up on their first line: the numbers sit at the top, not centred
     // against the whole wrapped block.
-    return h_flex().w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).bg(lineBg ?? t.background)
+    return h_flex().id(`row-${key}`).w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).bg(picked ? t.selected : lineBg ?? t.background)
+      .on_hover((hovered, cx) => {
+        if (hovered) {
+          this.hover = key;
+          if (this.dragging && this.sel?.path === path) this.sel = { ...this.sel, to: i }; // dragging over rows extends the selection
+        } else if (this.hover === key) this.hover = null;
+        cx.notify();
+      })
       .when(this.wrap, (e) => e.min_h(this.px(20)).py(1).items_start()).when(!this.wrap, (e) => e.h(this.px(20)).items_center())
       // shortcut: the gutter fits three digits; a four-digit line number in a big file is clipped.
+      .child(plus)
       .child(div().w(this.px(NUM_W)).flex_none().text_right().pr(4).text_color(t.dim).child(row.o ?? ""))
       .child(div().w(this.px(NUM_W)).flex_none().text_right().pr(4).text_color(t.dim).child(row.n ?? ""))
       .child(div().w(this.px(SIGN_W)).flex_none().text_color(mark).child(row.kind === " " ? "" : row.kind))
@@ -168,7 +237,7 @@ export default class GitDiff extends View {
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
     const groups = this.groups();
     const empty = this.error || (this.loading ? "Loading changes…" : this.root ? "No changes" : "No folder");
-    return v_flex().id("herdr-gitdiff").size_full().on_size_change((size, cx) => { if (size.width !== this.viewport) { this.viewport = size.width; cx.notify(); } }).min_h(0).bg(t.background).text_color(t.foreground).text_size(this.cfg.font).font_family(settings().font_family ?? "JetBrains Mono")
+    return v_flex().id("herdr-gitdiff").size_full().on_mouse_up("left", (_e, cx) => { if (this.dragging) { this.dragging = false; cx.notify(); } }).on_size_change((size, cx) => { if (size.width !== this.viewport) { this.viewport = size.width; cx.notify(); } }).min_h(0).bg(t.background).text_color(t.foreground).text_size(this.cfg.font).font_family(settings().font_family ?? "JetBrains Mono")
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Changes"))
         .child(div().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(`${this.files.length} files`))
@@ -191,6 +260,7 @@ export default class GitDiff extends View {
           // overflow_scrollbar() call leaves this panel stuck on "could not be re-rendered".
           .child(v_flex().id("herdr-gitdiff-list").absolute().inset_0().overflow_y_scroll()
             .child(v_flex().w_full().children(groups.flatMap((g) => (g.body ? [this.fileRow(g.file, t), hscroll(this, g, t)] : [this.fileRow(g.file, t)])))))
-          .child(Scrollbar.vertical("herdr-gitdiff-list").mode("always").absolute().inset_0())));
+          .child(Scrollbar.vertical("herdr-gitdiff-list").mode("always").absolute().inset_0())))
+      .children([this.composer(t)].filter(Boolean));
   }
 }

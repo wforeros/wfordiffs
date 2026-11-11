@@ -87,6 +87,15 @@ palette (or keep the theme's) and set how strong the line and the word tints are
 live preview; it also sets the **font size** of the panel (9 to 24 px, default 12): rows, gutters and counts scale with it; the diffs behind it update as you click. Herdr saves the choice (`shared`),
 and **Reset** returns to the defaults.
 
+## Asking the agent about lines
+
+Hover a line of an open diff and a **+** shows in front of its numbers. Press it to select
+that line, or keep the button down and drag over more lines. A bar opens under the list
+with the reference (`path:12-14`), the agent it goes to (click to switch when several run;
+by default the focused one) and a box: type the question or the correction and press
+Enter or **Send**. The agent receives the reference, the lines as a fenced `diff` block
+and your words, through `hc send` (which submits it). **✕** drops the selection.
+
 ## Behavior
 
 - git runs where the shown space lives: `on: "wsl"` for the WSL machine.

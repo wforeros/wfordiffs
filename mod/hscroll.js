@@ -13,7 +13,7 @@ export function hscroll(view, g, t) {
   const wide = maxOff > 0;
   const move = (to, cx) => { view.offsets[g.id] = Math.min(Math.max(to, 0), maxOff); cx.notify(); };
   const rows = v_flex().w_full().when(off > 0, (e) => e.ml(-off))
-    .children(g.body.map((row) => view.codeRow(row, g.file.path, t, wide ? g.width : 0)));
+    .children(g.body.map((row, i) => view.codeRow(row, g.file.path, t, wide ? g.width : 0, i)));
   const box = div().w_full().overflow_hidden().child(rows)
     .when(wide, (e) => e.on_scroll_wheel((event, cx) => {
       // A sideways wheel, or a vertical one with shift; a plain vertical wheel is the list's.
