@@ -202,8 +202,9 @@ export default class GitDiff extends View {
     // against the whole wrapped block.
     return h_flex().w_full().when(!this.wrap && width > 0, (e) => e.min_w(width)).bg(tint ?? t.background)
       .when(this.wrap, (e) => e.min_h(20).py(1).items_start()).when(!this.wrap, (e) => e.h(20).items_center())
-      .child(div().w(38).flex_none().text_right().pr(4).text_color(t.dim).child(row.o ?? ""))
-      .child(div().w(38).flex_none().text_right().pr(4).text_color(t.dim).child(row.n ?? ""))
+      // Gutter fits three digits (shortcut: a four-digit line number in a big file is clipped).
+      .child(div().w(30).flex_none().text_right().pr(4).text_color(t.dim).child(row.o ?? ""))
+      .child(div().w(30).flex_none().text_right().pr(4).text_color(t.dim).child(row.n ?? ""))
       .child(div().w(12).flex_none().text_color(mark).child(row.kind === " " ? "" : row.kind))
       .child(body);
   }
@@ -218,7 +219,7 @@ export default class GitDiff extends View {
       // What the widest row needs: two number gutters, the sign, then the text.
       // shortcut: 9.6px per character is an estimate of the mono advance at the panel's
       // zoom; if a bar shows on a file that fits (or the reverse), tune this number.
-      const width = Math.max(...body.map((r) => r.text.length * 9.6 + 92), 0);
+      const width = Math.max(...body.map((r) => r.text.length * 9.6 + 76), 0);
       return { file: f, body, width, id: `gv-${i}` };
     });
   }
