@@ -14,6 +14,7 @@ mod/inline.js    pure: word-level marks inside a changed line (markWords, splitM
 mod/config.js    pure: tint colors and strengths (kept in shared("gitdiff.cfg"))
 mod/settings-view.js  the gear window: palette, steppers, preview (same mod, props().settings)
 mod/ask.js       pure: selected rows -> "<path>#L1-L3" reference
+mod/tree.js      pure: changed files -> folder and file rows for the tree view
 mod/metrics.js    gutter widths and the per-character width estimate
 tests/            node:test, one file per module (npm test)
 ```
@@ -38,3 +39,11 @@ the panel gets its own horizontal bar.
 - `wrap` drops the bars and lets long lines break between tokens.
 - `overflow_scrollbar()` leaves the panel stuck on "could not be re-rendered"; the list uses
   one overflow area plus one `Scrollbar` instead.
+
+## The tree column
+
+The list is always the left column. The tree button (`this.tree`) adds a column on the right
+with the folders that hold a change (`treeRows`), with a 1px divider between them. Each column is
+its own `area()`: a scroll area with its own width (`this.widths[id]`, which sizes its diffs'
+bars) and its own sideways offsets. Both can show the same file, so each column's ids and row
+keys carry its prefix (`groups(tree)` marks the entries, `codeRow`'s `col`).

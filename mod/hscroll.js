@@ -1,19 +1,20 @@
 // One open file's sideways scrolling: a bar of its own, wheel and drag. A view helper:
-// state (offsets, drag, viewport, wrap) lives on the GitDiff view it is handed.
+// state (offsets, drag, wrap) lives on the GitDiff view it is handed. `width` is the column the
+// file is in (the list or the tree), which its bar is sized from.
 import { div } from "gpui-kit";
 import { v_flex } from "gpui-base";
 
 // An open file: its rows shift sideways under a clip of their own, driven by the wheel,
 // a click on the bar or a drag of it. No nested scroll area: a second one on top of the
 // vertical list made a plain wheel move both and the panel drift diagonally.
-export function hscroll(view, g, t) {
-  const vw = view.viewport || 320;
+export function hscroll(view, g, t, width) {
+  const vw = width || 320;
   const maxOff = view.wrap ? 0 : Math.max(0, g.width - vw);
   const off = Math.min(Math.max(view.offsets[g.id] ?? 0, 0), maxOff);
   const wide = maxOff > 0;
   const move = (to, cx) => { view.offsets[g.id] = Math.min(Math.max(to, 0), maxOff); cx.notify(); };
   const rows = v_flex().w_full().when(off > 0, (e) => e.ml(-off))
-    .children(g.body.map((row, i) => view.codeRow(row, g.file.path, t, wide ? g.width : 0, i)));
+    .children(g.body.map((row, i) => view.codeRow(row, g.file.path, t, wide ? g.width : 0, i, g.id)));
   const box = div().w_full().overflow_hidden().child(rows)
     .when(wide, (e) => e.on_scroll_wheel((event, cx) => {
       // A sideways wheel, or a vertical one with shift; a plain vertical wheel is the list's.
