@@ -8,7 +8,7 @@ export const git = (cwd, ...args) =>
   execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd, encoding: "utf8", maxBuffer: 1e8 });
 
 export function scratchRepo() {
-  const dir = mkdtempSync(join(tmpdir(), "herdr-gitdiff-"));
+  const dir = mkdtempSync(join(tmpdir(), "wfordiffs-"));
   git(dir, "init", "-q");
   return dir;
 }

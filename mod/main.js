@@ -89,7 +89,7 @@ export default class GitDiff extends View {
     this.listenForCommands(cx);
   }
 
-  // Key commands from keys.json ("herdr-gitdiff.<command>"); they reach this copy only while it's shown.
+  // Key commands from keys.json ("wfordiffs.<command>"); they reach this copy only while it's shown.
   listenForCommands(cx) {
     cx.spawn(async (cx) => {
       for (;;) {
@@ -235,7 +235,7 @@ export default class GitDiff extends View {
     if (this.menu) return; // the picker is open: its search field takes the keys
     const k = e.keystroke;
     const i = this.files.findIndex((f) => f.path === this.cursor);
-    const tenth = Math.max(1, Math.floor((this.heights["herdr-gitdiff-list"] ?? 0) / this.px(FILE_H) / 10));
+    const tenth = Math.max(1, Math.floor((this.heights["wfordiffs-list"] ?? 0) / this.px(FILE_H) / 10));
     if (k === "j" || k === "k" || k === "ctrl-d" || k === "ctrl-u") {
       if (!this.files.length) return;
       const step = { j: 1, k: -1, "ctrl-d": tenth, "ctrl-u": -tenth }[k];
@@ -283,7 +283,7 @@ export default class GitDiff extends View {
   // Full screen: the panel opens again in a big dialog over the window, as its own copy of this mod
   // (props.full). It is an action, not a toggle: Esc shuts the dialog.
   openFull() {
-    openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 0.94, height: 0.9, props: { full: true } });
+    openOverlay({ mod: "wfordiffs", kind: "dialog", width: 0.94, height: 0.9, props: { full: true } });
   }
 
   // Runs a tool (nvim, lazygit, ...) in a terminal of its own and shows it: in a window over the panel's body when
@@ -347,7 +347,7 @@ export default class GitDiff extends View {
   // Asks first: the confirm dialog does the discard (its own copy of this mod, over the panel).
   askDiscard(f) {
     if (!this.loc) return;
-    openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 420, height: 220,
+    openOverlay({ mod: "wfordiffs", kind: "dialog", width: 420, height: 220,
       props: { discard: { loc: this.loc, file: { path: f.path, untracked: !!f.untracked } } } });
   }
 
@@ -532,7 +532,7 @@ export default class GitDiff extends View {
       flash: this.flash, totals, view: { wrap: this.wrap, side: this.side, tree: this.tree }, isFull: !!props()?.full,
       onExpandAll: (cx) => this.expandAll(cx), onCollapseAll: (cx) => this.collapseAll(cx),
       onToggleMenu: (cx) => { if (this.menu) { this.menu = false; this.sub = null; cx.notify(); } else this.openPicker(cx); },
-      onOpenSettings: () => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 596, props: { settings: true } }),
+      onOpenSettings: () => openOverlay({ mod: "wfordiffs", kind: "window", key: "gitdiff-settings", width: 300, height: 596, props: { settings: true } }),
       onSetView: (patch, cx) => this.setView(patch, cx), onOpenFull: () => this.openFull(),
       lazygit: this.lazygit, lazygitOn: this.tools.isUp("lazygit"), onToggleLazygit: (cx) => this.toggleLazygit(cx) });
   }
@@ -566,15 +566,15 @@ export default class GitDiff extends View {
     const listWidth = this.tree && this.bodyW ? Math.round(this.bodyW * (1 - this.split)) : null;
     return h_flex().flex_1().min_h(0).items_stretch()
       .on_size_change((size, cx) => { if (size.width !== this.bodyW) { this.bodyW = size.width; cx.notify(); } })
-      .child(this.scrollColumn("herdr-gitdiff-list", this.listRows(false), t, listWidth))
-      .when(this.tree, (e) => e.child(this.divider(t)).child(this.scrollColumn("herdr-gitdiff-tree", this.listRows(true), t, null)));
+      .child(this.scrollColumn("wfordiffs-list", this.listRows(false), t, listWidth))
+      .when(this.tree, (e) => e.child(this.divider(t)).child(this.scrollColumn("wfordiffs-tree", this.listRows(true), t, null)));
   }
 
   render(cx) {
     const t = theme();
     this.syncShared();
     if (props()?.settings) return settingsView(t, this.cfg, { cursor: this.settingsAt, handle: this.handle, onKey: (e, cx) => this.onSettingsKey(e, cx), onReset: () => this.askReset() });
-    if (props()?.reset) return confirmView(t, { id: "herdr-gitdiff-reset", title: "Reset settings?", action: "Reset",
+    if (props()?.reset) return confirmView(t, { id: "wfordiffs-reset", title: "Reset settings?", action: "Reset",
       detail: "The colors, tints, font size and where Lazygit and Neovim open go back to their defaults. This can't be undone.",
       handle: this.handle, onKey: (e, cx) => this.onResetKey(e, cx),
       onConfirm: () => this.confirmReset(), onCancel: () => closeOverlay(props().overlay) });
@@ -582,7 +582,7 @@ export default class GitDiff extends View {
       onConfirm: (_e, cx) => this.confirmDiscard(cx), onCancel: () => closeOverlay(props().overlay) });
     this.countsW = this.countsWidth();
     const away = this.tools.isAway();
-    return v_flex().id("herdr-gitdiff").size_full().relative().track_focus(this.handle)
+    return v_flex().id("wfordiffs").size_full().relative().track_focus(this.handle)
       .on_key_down((e, cx) => this.onKey(e, cx)).on_mouse_down("left", () => this.handle.focus())
       .on_mouse_move((e, cx) => this.onPointerMove(e, cx)).on_mouse_up("left", (_e, cx) => this.onPointerUp(cx))
       .on_size_change((size, cx) => { this.rootSize = size; this.onResized(cx); })
@@ -601,7 +601,7 @@ export default class GitDiff extends View {
 
   // Asks first: the confirm dialog does the reset (its own copy of this mod, over the settings window).
   askReset() {
-    openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 380, height: 190, props: { reset: true } });
+    openOverlay({ mod: "wfordiffs", kind: "dialog", width: 380, height: 190, props: { reset: true } });
   }
 
   confirmReset() {
@@ -635,7 +635,7 @@ export default class GitDiff extends View {
 
   // The line between the columns. Drag it to make the tree wider or narrower.
   divider(t) {
-    return div().id("herdr-gitdiff-split").w(8).flex_none().flex().justify_center().cursor_col_resize()
+    return div().id("wfordiffs-split").w(8).flex_none().flex().justify_center().cursor_col_resize()
       .on_mouse_down("left", (e, cx) => { this.splitDrag = { x: e.position.x, start: this.split }; cx.stop_propagation(); cx.notify(); })
       .child(div().w(1).h_full().bg(t.border));
   }
@@ -648,10 +648,10 @@ export default class GitDiff extends View {
   scrollColumn(id, groups, t, basis) {
     const width = this.widths[id] ?? 0;
     // The width the wrapped code is cut to (wrap.js); the tree shows no code, so it never sets it.
-    if (width && id === "herdr-gitdiff-list") this.viewport = width;
+    if (width && id === "wfordiffs-list") this.viewport = width;
     // The open diffs' sideways offsets are kept per column: the same file can show in both.
     const rows = groups.map((g) => (g.body ? { ...g, id: `${id}-${g.id}` } : g));
-    const list = id === "herdr-gitdiff-list";
+    const list = id === "wfordiffs-list";
     // The rows, flat: each is a child of the scroll area (so the cursor's row has an index to scroll to).
     const kids = [];
     let at = -1;
@@ -693,7 +693,7 @@ export default class GitDiff extends View {
   // the chip; a sideways turn is the diff's own bar.
   onListWheel(files, hit, inset, e, cx) {
     if (!e.delta.y || e.modifiers.shift) return;
-    const view = this.heights["herdr-gitdiff-list"];
+    const view = this.heights["wfordiffs-list"];
     if (view && this.groupHeight(files[hit]) <= view) return; // the whole diff fits: no chip
     let path = files[hit].path;
     if (e.bounds && this.listTop !== undefined) {

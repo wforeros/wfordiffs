@@ -32,19 +32,19 @@ export default class ChangesMenu extends View {
   items() {
     const v = parseView(shared(VIEW_KEY));
     const all = [
-      // Fullscreen shuts the menu and opens the panel full screen (its own dialog of herdr-gitdiff).
-      { label: "Fullscreen", run: () => { openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 0.94, height: 0.9, props: { full: true } }); } },
+      // Fullscreen shuts the menu and opens the panel full screen (its own dialog of wfordiffs).
+      { label: "Fullscreen", run: () => { openOverlay({ mod: "wfordiffs", kind: "dialog", width: 0.94, height: 0.9, props: { full: true } }); } },
       // Both Lazygit rows ask the panel (its commands `lazygit-fullscreen` and `lazygit-pane`): the menu is shut
       // before a row runs, so anything it waited for (hc) would come back to a menu that is gone. The panel knows
       // the repo and closes its own lazygit first. Like any mod command they reach shown copies only.
-      { label: "Lazygit > Fullscreen", run: () => { run("herdr-gitdiff.lazygit-fullscreen"); } },
-      { label: "Lazygit > Pane", run: () => { run("herdr-gitdiff.lazygit-pane"); } },
+      { label: "Lazygit > Fullscreen", run: () => { run("wfordiffs.lazygit-fullscreen"); } },
+      { label: "Lazygit > Pane", run: () => { run("wfordiffs.lazygit-pane"); } },
       { label: "Split view", hint: v.side ? "on" : "off", run: (cx) => this.setView({ side: !v.side }, cx) },
       { label: "Tree", hint: v.tree ? "on" : "off", run: (cx) => this.setView({ tree: !v.tree }, cx) },
       { label: "Wrap", hint: v.wrap ? "on" : "off", run: (cx) => this.setView({ wrap: !v.wrap }, cx) },
       // Settings opens the panel's gear window (colors, font, where the tools open). The same window, key and
       // size as the header's gear in mod/main.js: change them together.
-      { label: "Settings", run: () => { openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 596, props: { settings: true } }); } },
+      { label: "Settings", run: () => { openOverlay({ mod: "wfordiffs", kind: "window", key: "gitdiff-settings", width: 300, height: 596, props: { settings: true } }); } },
     ];
     const q = this.query.trim().toLowerCase();
     return all.filter((it) => it.label.toLowerCase().includes(q));
@@ -77,9 +77,9 @@ export default class ChangesMenu extends View {
   render() {
     const t = theme();
     const list = this.items(), at = Math.min(this.at, Math.max(0, list.length - 1));
-    return v_flex().id("herdr-gitdiff-menu").track_focus(this.handle).w_full().min_h(0).p(5).bg(t.popover).text_size(12.8)
+    return v_flex().id("wfordiffs-menu").track_focus(this.handle).w_full().min_h(0).p(5).bg(t.popover).text_size(12.8)
       .on_key_down((e, cx) => this.key(e, cx))
-      .child(div().px(9).pt(8).pb(4).text_size(11).text_color(t.dim).child("Herdr Diffview"))
+      .child(div().px(9).pt(8).pb(4).text_size(11).text_color(t.dim).child("WForDiffs"))
       .child(h_flex().h(31).px(8).mb(4).items_center().rounded(7).border_1().border_color(t.border)
         .child(Input.new(this.input).flex_1().h_full().text_size(12.8).text_color(t.foreground)))
       .children(list.length ? list.map((it, i) => h_flex().id(`mi-${i}`).h(31).px(8).gap(9).rounded(7).items_center().justify_between().text_color(t.foreground)

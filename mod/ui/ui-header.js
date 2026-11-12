@@ -7,7 +7,7 @@ import { textButton, iconButton } from "./ui-buttons.js";
 import { addedCount, removedCount } from "./ui-counts.js";
 
 const HEADER_H = 42;
-const icon = (name) => `mods/herdr-gitdiff/icons/${name}.svg`;
+const icon = (name) => `mods/wfordiffs/icons/${name}.svg`;
 
 // Styles (see AGENTS.md).
 const bar = (theme) => (el) => el.h(HEADER_H).flex_none().px(14).gap(8).items_center().border_b(1).border_color(theme.border);
@@ -43,31 +43,31 @@ const notice = (theme, cfg) => (el) => el.min_w(0).truncate().text_size(10).text
  */
 export function header(theme, o) {
   const toggle = (name, iconName, tooltip) => iconButton({
-    id: `herdr-gitdiff-${name}`, icon: icon(iconName), tooltip, active: o.view[name],
+    id: `wfordiffs-${name}`, icon: icon(iconName), tooltip, active: o.view[name],
     onClick: (_e, cx) => o.onSetView({ [name]: !o.view[name] }, cx) }, theme);
   return bar(theme)(h_flex())
-    .child(div().font_semibold().child("Herdr Diffview"))
-    .child(textButton({ id: "herdr-gitdiff-rev", bordered: true, active: o.menuOpen, color: o.hasRev ? theme.foreground : theme.muted,
+    .child(div().font_semibold().child("WForDiffs"))
+    .child(textButton({ id: "wfordiffs-rev", bordered: true, active: o.menuOpen, color: o.hasRev ? theme.foreground : theme.muted,
       tooltip: "Uncommitted changes, what this branch adds to another, or what a commit changed", label: o.revLabel,
       onClick: (_e, cx) => o.onToggleMenu(cx) }, theme))
     .child(chip(theme)(div()).child(`${o.fileCount} files`))
     .when(!!o.flash, (el) => el.child(notice(theme, o.cfg)(div()).child(o.flash)))
     .child(div().flex_1())
     // Only where lazygit is installed (lazygit.js); it opens lazygit in the repo, and while it is up it closes it.
-    .when(o.lazygit, (el) => el.child(iconButton({ id: "herdr-gitdiff-lazygit", icon: icon("lazygit"),
+    .when(o.lazygit, (el) => el.child(iconButton({ id: "wfordiffs-lazygit", icon: icon("lazygit"),
       active: o.lazygitOn, tooltip: o.lazygitOn ? "Close lazygit" : "Open lazygit in this repo",
       onClick: (_e, cx) => o.onToggleLazygit(cx) }, theme)))
-    .child(iconButton({ id: "herdr-gitdiff-expand", icon: icon("expand"), tooltip: "Expand all diffs",
+    .child(iconButton({ id: "wfordiffs-expand", icon: icon("expand"), tooltip: "Expand all diffs",
       onClick: (_e, cx) => o.onExpandAll(cx) }, theme))
-    .child(iconButton({ id: "herdr-gitdiff-collapse", icon: icon("collapse"), tooltip: "Collapse all diffs",
+    .child(iconButton({ id: "wfordiffs-collapse", icon: icon("collapse"), tooltip: "Collapse all diffs",
       onClick: (_e, cx) => o.onCollapseAll(cx) }, theme))
     .child(toggle("wrap", "wrap", "Wrap long lines"))
     .child(toggle("side", "split", "Split: before on the left, after on the right"))
     .child(toggle("tree", "tree", "Tree: show the changed folders as a tree, on the right"))
     // Not in the full screen copy itself: it is full screen already.
-    .child(o.isFull ? div() : iconButton({ id: "herdr-gitdiff-full", icon: icon("fullscreen"),
-      tooltip: "Open full screen (shortcut: herdr-gitdiff.fullscreen)", onClick: o.onOpenFull }, theme))
-    .child(iconButton({ id: "herdr-gitdiff-config", icon: icon("settings"), tooltip: "Diff colors", onClick: o.onOpenSettings }, theme))
+    .child(o.isFull ? div() : iconButton({ id: "wfordiffs-full", icon: icon("fullscreen"),
+      tooltip: "Open full screen (shortcut: wfordiffs.fullscreen)", onClick: o.onOpenFull }, theme))
+    .child(iconButton({ id: "wfordiffs-config", icon: icon("settings"), tooltip: "Diff colors", onClick: o.onOpenSettings }, theme))
     .child(addedCount(o.totals.add, theme, o.cfg, o.px))
     .child(removedCount(o.totals.del, theme, o.cfg, o.px));
 }

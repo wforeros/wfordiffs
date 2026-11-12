@@ -40,7 +40,7 @@ mod/utils/screen-wait.js  pure: waitForScreen (a window opens on a tool's termin
 mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
 mod/commit-search.js  pure: the picker's search (filterCommits: a hash's start or part of a subject)
 mod/sides.js      pure: a diff's rows -> pairs (old line left, new line right) for the split view
-menu/main.js      the Changes menu (<leader>g), its own mod (herdr-gitdiff-menu): Herdr's menu look, a filter field, the shared views
+menu/main.js      the Changes menu (<leader>g), its own mod (wfordiffs-menu): Herdr's menu look, a filter field, the shared views
 tests/            node:test, one file per module (npm test)
 ```
 
@@ -154,10 +154,10 @@ Split, tree and wrap are one shared choice (`VIEW_KEY`, `parseView` in `config.j
 `render` reads it into the instance (`Object.assign`), and `setView` writes it, so the header buttons, the
 menu and the full-screen copy agree. Herdr keeps `shared` state, so the choice survives a restart.
 
-The menu is `menu/` (`herdr-gitdiff-menu`), opened with `mod.open` from the tmux-style prefix, so its
+The menu is `menu/` (`wfordiffs-menu`), opened with `mod.open` from the tmux-style prefix, so its
 `mod.json` sets the place: a popup at the top, 40px down. Its rows are Herdr's menu's (31px, the highlight,
 the hint on the right); its filter is an `InputState`, as in the picker. The toggles write the shared key
-and stay open; Fullscreen opens the full-screen dialog of `herdr-gitdiff`; Settings opens the gear window (`props: { settings: true }`, as the header's gear does). Both Lazygit rows ("Lazygit > Fullscreen", "Lazygit > Pane") run the panel's commands (`run("herdr-gitdiff.lazygit-fullscreen")`, `...lazygit-pane`) and launch nothing themselves: the menu is shut before a row runs, so a launch that waits for `hc` would finish in a menu that is gone. The panel knows the repo and closes its own lazygit first. Like any mod command they reach shown copies only, so the panel must be shown.
+and stay open; Fullscreen opens the full-screen dialog of `wfordiffs`; Settings opens the gear window (`props: { settings: true }`, as the header's gear does). Both Lazygit rows ("Lazygit > Fullscreen", "Lazygit > Pane") run the panel's commands (`run("wfordiffs.lazygit-fullscreen")`, `...lazygit-pane`) and launch nothing themselves: the menu is shut before a row runs, so a launch that waits for `hc` would finish in a menu that is gone. The panel knows the repo and closes its own lazygit first. Like any mod command they reach shown copies only, so the panel must be shown.
 
 ctrl-d and ctrl-u move the cursor a tenth of the list's visible height (`heights`, set by the list's `on_size_change`), so the list follows it as it does for j and k.
 

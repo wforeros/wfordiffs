@@ -1,4 +1,4 @@
-# herdr-gitdiff
+# wfordiffs
 
 A Changes panel for [Herdr](https://herdr.dev): the files changed in the repo you're viewing, each one opening into its diff.
 
@@ -27,7 +27,7 @@ A Changes panel for [Herdr](https://herdr.dev): the files changed in the repo yo
 ### Optional extras
 
 - **Open in Neovim**: with `nvim` installed, the list's nvim icon opens the file, and a block's menu opens it at that line, over the panel's body like Lazygit, or in a large dialog if the gear settings say Fullscreen for Neovim (the full-screen copy always uses the dialog). Quitting nvim brings the list back.
-- **Lazygit**: with `lazygit` installed, the header's button opens it over the panel's body (the header stays; click again to close it), or in a large dialog if the gear settings say Fullscreen. The menu offers both: Lazygit > Fullscreen and Lazygit > Pane. The commands `lazygit-fullscreen` (a large dialog over the window) and `lazygit-pane` (over the panel's body) can be bound as `herdr-gitdiff.<command>` in `keys.json`.
+- **Lazygit**: with `lazygit` installed, the header's button opens it over the panel's body (the header stays; click again to close it), or in a large dialog if the gear settings say Fullscreen. The menu offers both: Lazygit > Fullscreen and Lazygit > Pane. The commands `lazygit-fullscreen` (a large dialog over the window) and `lazygit-pane` (over the panel's body) can be bound as `wfordiffs.<command>` in `keys.json`.
 
 Without them the mod works, but these options don't appear.
 
@@ -54,7 +54,7 @@ Running on Windows: when the Herdr space is a WSL machine, git, bat, nvim and la
 
 Ask your AI agent:
 
-> Read ~/.config/herdr-app/AGENTS.md, then add this mod: https://github.com/wforeros/herdr-gitdiff
+> Read ~/.config/herdr-app/AGENTS.md, then add this mod: https://github.com/wforeros/wfordiffs
 
 The agent follows [RECIPE.md](RECIPE.md), the step-by-step brief for installing this mod.
 

@@ -41,12 +41,12 @@ const searchField = (theme, px) => (el) => el.h(px(26)).mx(4).mt(4).mb(2).px(8).
  */
 export function messageBox(theme, { message, short, open, px, onToggle }) {
   const { subject, body } = splitMessage(message);
-  const subjectRow = h_flex().id("herdr-gitdiff-msg").gap(8).items_start()
+  const subjectRow = h_flex().id("wfordiffs-msg").gap(8).items_start()
     .when(!!body, (e) => e.cursor_pointer())
     .on_click((_e, cx) => { if (body) onToggle(cx); })
     .child(subjectText(theme, px, open)(div()).child(subject))
     .when(!!body, (e) => e.child(foldToggle(theme, px)(div()).child(open ? "less ▴" : "more ▾")));
-  const bodyBox = v_flex().id("herdr-gitdiff-msg-body").max_h(px(180)).overflow_y_scroll()
+  const bodyBox = v_flex().id("wfordiffs-msg-body").max_h(px(180)).overflow_y_scroll()
     .child(bodyText(theme, px)(div()).child(body));
   return card(theme)(v_flex())
     .child(caption(theme, px)(div()).child(`COMMIT ${short}`))
@@ -77,7 +77,7 @@ export function messageBox(theme, { message, short, open, px, onToggle }) {
  */
 export function commitMenu(theme, { rev, branch, branches, commits, query, sub, px, onSub, onPick, onPickBranch, searchInput }) {
   const row = (id, active) => menuRow(theme, px, active)(div().id(id));
-  const search = searchField(theme, px)(h_flex().id("herdr-gitdiff-search").w_full())
+  const search = searchField(theme, px)(h_flex().id("wfordiffs-search").w_full())
     .child(Input.new(searchInput).flex_1().h_full().text_size(px(11)).text_color(theme.foreground));
   const uncommitted = row("rev-uncommitted", !rev).w(150)
     .on_hover((hovered, cx) => { if (hovered && sub && !(sub === "commits" && query)) onSub(null, cx); })
@@ -96,7 +96,7 @@ export function commitMenu(theme, { rev, branch, branches, commits, query, sub, 
     .on_click((_e, cx) => onPick(c.sha, cx))
     .child(div().text_color(theme.dim).flex_none().child(c.short))
     .child(div().min_w(0).truncate().child(c.subject)));
-  const branchList = popup(theme)(v_flex()).w(260).id("herdr-gitdiff-branches").max_h(px(260)).overflow_y_scroll()
+  const branchList = popup(theme)(v_flex()).w(260).id("wfordiffs-branches").max_h(px(260)).overflow_y_scroll()
     .children(branchRows.length ? branchRows : [note("No other branches")]);
   const commitList = popup(theme)(v_flex()).w(260).child(search)
     .children(commitRows.length ? commitRows : [note(query ? "Nothing matches" : "No commits")]);

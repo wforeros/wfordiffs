@@ -5,7 +5,7 @@ import { confirmView } from "./confirm-view.js";
 export function discardView(t, { target, busy, error, onConfirm, onCancel }) {
   const name = target.path.split("/").pop();
   return confirmView(t, {
-    id: "herdr-gitdiff-discard", busy, error, onConfirm, onCancel,
+    id: "wfordiffs-discard", busy, error, onConfirm, onCancel,
     title: target.untracked ? `Delete ${name}?` : `Discard changes to ${name}?`,
     detail: target.untracked
       ? `${target.path} is new and git doesn't track it yet, so it can't be restored.`

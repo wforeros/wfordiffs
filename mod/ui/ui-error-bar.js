@@ -29,7 +29,7 @@ export function errorBar(theme, o) {
   return bar(theme, o.cfg)(v_flex())
     .child(h_flex().items_center().gap(4)
       .child(heading(theme, o.cfg, o.px)(div()).child("Error"))
-      .child(textButton({ id: "herdr-gitdiff-error-copy", label: o.copied ? "Copied ✓" : "Copy error", bordered: true, onClick: o.onCopy }, theme))
-      .child(textButton({ id: "herdr-gitdiff-error-close", label: "✕", tooltip: "Dismiss", onClick: o.onDismiss }, theme)))
+      .child(textButton({ id: "wfordiffs-error-copy", label: o.copied ? "Copied ✓" : "Copy error", bordered: true, onClick: o.onCopy }, theme))
+      .child(textButton({ id: "wfordiffs-error-close", label: "✕", tooltip: "Dismiss", onClick: o.onDismiss }, theme)))
     .child(message(theme, o.px)(div()).child(o.text));
 }

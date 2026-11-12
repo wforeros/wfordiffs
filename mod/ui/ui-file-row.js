@@ -10,7 +10,7 @@ import { addedCount, removedCount, binaryLabel } from "./ui-counts.js";
 
 // The status of a file -> its icon (mod/icons/custom). Untracked files count as new.
 const STATUS_ICONS = { M: "modified_file", A: "new_file", D: "deleted_file" };
-const ICONS = "mods/herdr-gitdiff/icons";
+const ICONS = "mods/wfordiffs/icons";
 const ACTION = 20, ACTION_ICON = 13; // nvim and discard: the button and its icon, px at 12px
 const CURSOR_TINT = 0.16; // the cursor's file: a faint tint of the accent, not a gray (the hatching is gray)
 const NAME_MAX = 260;

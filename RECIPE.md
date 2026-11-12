@@ -30,7 +30,7 @@ The mod has no agent states: it shows the repo's changes only.
 
 ## Built from
 
-- **Two mods:** `herdr-gitdiff` (the panel: `mod/main.js`, `mod/mod.json` with `"focusable": true`, `mod/ui/` for drawing, and `mod/icons/`) and `herdr-gitdiff-menu` (`menu/main.js`, `menu/mod.json` with a popup overlay, top, 240 by 260 px, 40 px down).
+- **Two mods:** `wfordiffs` (the panel: `mod/main.js`, `mod/mod.json` with `"focusable": true`, `mod/ui/` for drawing, and `mod/icons/`) and `wfordiffs-menu` (`menu/main.js`, `menu/mod.json` with a popup overlay, top, 240 by 260 px, 40 px down).
 - **Herdr functions:** `exec`, `spaces`, `focused`, `readTextFile`, `nextCommand`, `theme`, `settings`, `shared`, `setShared`, `openOverlay`, `closeOverlay`, `notify`, `props` and `hc`, from the `herdr` module. The panel uses the `gpui-kit` and `gpui-base` builders for its drawing.
 - **Programs run through `exec`:** `git` on the repo's machine, `sh` (to start `bat` and to find `nvim` and `lazygit`), and, when present, `bat` for highlighting, `nvim` and `lazygit`.
 - **Art:** the icons in `mod/icons/` are drawn after Lucide (ISC) and taken from herdr-git-graph (MIT). Keep `LICENSE-lucide.txt` beside them. The nvim mark is Simple Icons (CC0).
@@ -48,7 +48,7 @@ The mod has no agent states: it shows the repo's changes only.
 
 ## Done when
 
-- `herdr-app check ~/.config/herdr-app/mods/herdr-gitdiff` and the same for `herdr-gitdiff-menu` pass.
+- `herdr-app check ~/.config/herdr-app/mods/wfordiffs` and the same for `wfordiffs-menu` pass.
 - `npm test` passes (`bat` tests are skipped when `bat` is missing).
 - On a repo with a modified file, a new file and a binary file, the panel lists all three with the right counts and marks, and `binary` shows for the binary one.
 - `j` moves the highlighted row down and `enter` opens its diff with the `+` and `−` tints.

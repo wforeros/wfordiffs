@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Installs the herdr-gitdiff mods into a Herdr app home: the Changes panel (mod/) and its menu (menu/).
-# Touches only mods/herdr-gitdiff and mods/herdr-gitdiff-menu: no keys, no layouts (the layout that
+# Installs the wfordiffs mods into a Herdr app home: the Changes panel (mod/) and its menu (menu/).
+# Touches only mods/wfordiffs and mods/wfordiffs-menu: no keys, no layouts (the layout that
 # shows them is yours to set).
 #
 #   ./install.sh                     -> $HERDR_APP_HOME or ~/.config/herdr-app
@@ -18,10 +18,10 @@ HOME_DIR="${HERDR_APP_HOME:-$HOME/.config/herdr-app}"
 [ -d "$HOME_DIR" ] || { W="$(command -v wslpath >/dev/null 2>&1 && wslpath -u "$HOME_DIR" 2>/dev/null || true)"; [ -n "$W" ] && HOME_DIR="$W"; }
 
 # The mods: source folder, then the name it installs under (which is also its title in mod.json).
-MODS=("mod:herdr-gitdiff" "menu:herdr-gitdiff-menu")
+MODS=("mod:wfordiffs" "menu:wfordiffs-menu")
 
-say() { printf 'herdr-gitdiff: %s\n' "$*"; }
-die() { printf 'herdr-gitdiff: %s\n' "$*" >&2; exit 1; }
+say() { printf 'wfordiffs: %s\n' "$*"; }
+die() { printf 'wfordiffs: %s\n' "$*" >&2; exit 1; }
 
 # Only ever replace or remove our own folder: its mod.json has our title.
 ours() { [ ! -e "$1" ] || grep -q "\"title\"[[:space:]]*:[[:space:]]*\"$2\"" "$1/mod.json" 2>/dev/null; }

@@ -1,4 +1,4 @@
-# herdr-gitdiff
+# wfordiffs
 
 A Herdr mod: a Changes panel (changed files, each opening into its diff). Layout and
 how the pieces fit: `docs/ARCHITECTURE.md`. User docs: `README.md`.
@@ -6,11 +6,11 @@ how the pieces fit: `docs/ARCHITECTURE.md`. User docs: `README.md`.
 - `mod/` (the Changes panel) and `menu/` (its `<leader>g` menu) are what gets installed
   (`./install.sh`); keep each to `*.js`, `mod.json` and
   `icons/` (`*.svg` plus `LICENSE-lucide.txt`, which ships with them).
-- One name everywhere: the repo, the installed mod (`mods/herdr-gitdiff`, `DEST`
+- One name everywhere: the repo, the installed mod (`mods/wfordiffs`, `DEST`
   in `install.sh`), the `"title"` in `mod.json` (the install's guard reads it), the
-  `content.mod` in a layout, the `herdr-gitdiff.<command>` bindings in `keys.json`,
+  `content.mod` in a layout, the `wfordiffs.<command>` bindings in `keys.json`,
   and the assets, which are addressed from the app home: an icon is
-  `svg("mods/herdr-gitdiff/icons/x.svg")`.
+  `svg("mods/wfordiffs/icons/x.svg")`.
 - `mod/` is flat, except `mod/ui/`, `mod/utils/` and `mod/settings/` (`install.sh` copies `mod/*.js` and the `*.js` of those three, nothing else): the layer is
   in the name. `mod/ui/ui-*.js` draw from values and callbacks the view passes in (never `this`); everything else
   is pure or takes `exec` & co. `mod/utils/` is for what does not know this mod (it takes Herdr's functions as arguments, imports only from `utils/`), so it can become an SDK. `mod/settings/` holds the settings window (`settings-view.js`, `settings-model.js`; `config.js` stays at the top, the panel reads it too). Only `ui/`, `utils/` and `settings/` are folders: don't add others.
