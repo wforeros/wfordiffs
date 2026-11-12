@@ -82,6 +82,9 @@ export function initialState() {
     // Keys
     cursor: null,             // the file the keys move on (its path), or null
     reveal: false,            // scroll the list to the cursor at the next render
+    scrollFile: null,         // the file under the pointer while the wheel turns (its chip shows), or null
+    heightMemo: {},           // per file: its height in the list, kept while its diff, the split view and the font stay (groupHeight)
+    scrollSeq: 0,             // counts the wheel turns, so only the last one hides the chip
 
     // The discard dialog
     err: null,                // its error, when the discard failed

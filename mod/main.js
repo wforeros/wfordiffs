@@ -5,7 +5,8 @@ import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar, ScrollHandle, InputState } from "gpui-base";
 import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, setShared, openOverlay, closeOverlay, notify, props, hc, run, terminals } from "herdr";
 import { selectedRows, reference } from "./ask.js";
-import { CHAR_W, GUTTER_W, FILE_H } from "./metrics.js";
+import { CHAR_W, GUTTER_W, FILE_H, LINE_H, HUNK_H } from "./metrics.js";
+import { topFile } from "./top-file.js";
 import { makeGit, noticeRows } from "./git.js";
 import { markWords } from "./inline.js";
 import { pairSides } from "./sides.js";
@@ -19,6 +20,7 @@ import { filterCommits } from "./commit-search.js";
 import { numberBlocks } from "./parse.js";
 import { header as drawHeader } from "./ui/ui-header.js";
 import { resizeNotice } from "./ui/ui-resize-notice.js";
+import { scrollChip } from "./ui/ui-scroll-chip.js";
 import { errorBar } from "./ui/ui-error-bar.js";
 import { codeRow as drawCodeRow, splitRow as drawSplitRow, hatching, blockAction } from "./ui/ui-diff-row.js";
 import { dirRow as drawDirRow, fileRow as drawFileRow } from "./ui/ui-file-row.js";
@@ -603,21 +605,64 @@ export default class GitDiff extends View {
     // The rows, flat: each is a child of the scroll area (so the cursor's row has an index to scroll to).
     const kids = [];
     let at = -1;
+    const files = list ? rows.filter((g) => g.kind !== "dir") : [];
     for (const g of rows) {
       if (g.kind === "dir") { kids.push(this.dirRow(g, t)); continue; }
       if (list && this.cursor === g.file.path) at = kids.length;
-      kids.push(this.fileRow(g.file, t, g));
-      if (g.body) kids.push(hscroll(this, g, t, width));
+      const row = this.fileRow(g.file, t, g);
+      const hit = files.indexOf(g);
+      kids.push(list ? row.on_scroll_wheel((e, cx) => this.onListWheel(files, hit, 0, e, cx)) : row);
+      if (g.body) {
+        const body = hscroll(this, g, t, width);
+        kids.push(list ? body.on_scroll_wheel((e, cx) => this.onListWheel(files, hit, this.px(FILE_H), e, cx)) : body);
+      }
     }
     // A key moved the cursor: the list scrolls to its row, once, after this layout.
     if (list && this.reveal) { this.reveal = false; if (at >= 0) this.listScroll.scroll_to_item(at); }
     return div().min_w(0).min_h(0).relative()
+      .when(list, (e) => e.on_scroll_wheel((ev) => { if (ev.bounds) this.listTop = ev.bounds.y; })) // where the list's top edge is
       .when(basis === null, (e) => e.flex_1()).when(basis !== null, (e) => e.w(basis).flex_none())
       .on_size_change((size, cx) => {
         this.heights[id] = size.height;
         if (size.width !== this.widths[id]) { this.widths[id] = size.width; cx.notify(); }
       })
       .child(v_flex().id(id).absolute().inset_0().overflow_y_scroll().when(list, (e) => e.track_scroll(this.listScroll)).children(kids))
-      .child(Scrollbar.vertical(id).mode("always").absolute().inset_0());
+      .child(Scrollbar.vertical(id).mode("always").absolute().inset_0())
+      .when(list && !!this.scrollFile, (e) => e.child(scrollChip(t, { path: this.scrollFile, px: (n) => this.px(n) })));
+  }
+
+  // The wheel turns over a file's rows: the chip names the file at the top of the list, and goes 1.2s after the last
+  // turn. It is only for a diff taller than the list (shorter ones show their file row all along, or leave it with
+  // the whole diff): the file under the pointer is measured from its rows, a cost of one file's rows per turn.
+  // The top file comes from the box of the element under the pointer (`hit`, whose body starts `inset` px below its
+  // file's start) and the list's top edge: a file that starts below the edge leaves the top to the ones before it
+  // (top-file.js, which measures only the ones it passes). Until the list's own box has arrived (the first turn),
+  // the file under the pointer.
+  // shortcut: heights are estimated from the rows (a wrapped line is taller), so the chip may change a few rows
+  // early or late at a boundary. A drag of the scrollbar and the keys send no wheel events, so they do not show
+  // the chip; a sideways turn is the diff's own bar.
+  onListWheel(files, hit, inset, e, cx) {
+    if (!e.delta.y || e.modifiers.shift) return;
+    const view = this.heights["herdr-gitdiff-list"];
+    if (view && this.groupHeight(files[hit]) <= view) return; // the whole diff fits: no chip
+    let path = files[hit].path;
+    if (e.bounds && this.listTop !== undefined) {
+      path = topFile(files.map((g) => g.file.path), hit, e.bounds.y - inset - this.listTop, (i) => this.groupHeight(files[i]));
+    }
+    const seq = ++this.scrollSeq;
+    if (this.scrollFile !== path) { this.scrollFile = path; cx.notify(); }
+    cx.timer.after(1200, (cx) => { if (seq === this.scrollSeq) { this.scrollFile = null; cx.notify(); } });
+  }
+
+  // A file's height in the list: its row, plus its diff's rows when open (their fixed heights, as hscroll counts them).
+  // Kept per file until its diff is loaded again, or the split view or the font changes (what the heights depend on),
+  // so a turn of the wheel asks the number and does not add up the rows again.
+  groupHeight(g) {
+    const path = g.file.path, rows = this.diffs[path], memo = this.heightMemo[path];
+    if (memo && memo.rows === rows && memo.split === !!g.split && memo.k === this.k) return memo.h;
+    let h = this.px(FILE_H);
+    for (const r of g.body ?? []) h += this.px(r.kind === "pair" || (r.kind !== "@" && !g.split) ? LINE_H : HUNK_H);
+    this.heightMemo[path] = { rows, split: !!g.split, k: this.k, h };
+    return h;
   }
 }
