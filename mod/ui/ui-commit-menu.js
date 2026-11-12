@@ -56,6 +56,7 @@ export function messageBox(theme, { message, short, open, px, onToggle }) {
 
 /**
  * @typedef {object} CommitMenuOptions
+ * @property {number} left px from the panel's left edge to the picker's button, where the menu opens
  * @property {string|null} rev the commit shown (null: the uncommitted changes)
  * @property {string|null} branch the branch HEAD is compared with (null: none)
  * @property {string[]} branches the branches the list offers
@@ -75,7 +76,7 @@ export function messageBox(theme, { message, short, open, px, onToggle }) {
  * @param {object} theme
  * @param {CommitMenuOptions} options
  */
-export function commitMenu(theme, { rev, branch, branches, commits, query, sub, px, onSub, onPick, onPickBranch, searchInput }) {
+export function commitMenu(theme, { left, rev, branch, branches, commits, query, sub, px, onSub, onPick, onPickBranch, searchInput }) {
   const row = (id, active) => menuRow(theme, px, active)(div().id(id));
   const search = searchField(theme, px)(h_flex().id("wfordiffs-search").w_full())
     .child(Input.new(searchInput).flex_1().h_full().text_size(px(11)).text_color(theme.foreground));
@@ -101,7 +102,7 @@ export function commitMenu(theme, { rev, branch, branches, commits, query, sub, 
   const commitList = popup(theme)(v_flex()).w(260).child(search)
     .children(commitRows.length ? commitRows : [note(query ? "Nothing matches" : "No commits")]);
   // The picker takes the clicks in it, so the panel does not take the keyboard from the field.
-  return h_flex().absolute().top(40).left(14).items_start()
+  return h_flex().absolute().top(40).left(left).items_start()
     .on_mouse_down("left", (_e, cx) => { searchInput.focus(); cx.stop_propagation(); })
     .child(popup(theme)(v_flex().w(150)).child(uncommitted)
       .child(entry("branches", "Branches", !!branch)).child(entry("commits", "Commits", !!rev && !branch)))

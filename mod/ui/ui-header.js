@@ -20,6 +20,7 @@ const notice = (theme, cfg) => (el) => el.min_w(0).truncate().text_size(10).text
  * @typedef {object} HeaderOptions
  * @property {(n: number) => number} px scales a size at 12px
  * @property {object} cfg the user's colors (config.js)
+ * @property {(width: number, cx: object) => void} onLeftSize the width of the title and the branch, as measured
  * @property {string} head the branch HEAD is on (not changeable), "" when there is none
  * @property {string} revLabel the picker button's text: the commit or branch shown, or "Uncommitted"
  * @property {boolean} hasRev a commit is shown (its label takes the full text color)
@@ -49,9 +50,11 @@ export function header(theme, o) {
     id: `wfordiffs-${name}`, icon: icon(iconName), tooltip, active: o.view[name],
     onClick: (_e, cx) => o.onSetView({ [name]: !o.view[name] }, cx) }, theme);
   return bar(theme)(h_flex())
-    .child(div().font_semibold().child("WForDiffs"))
-    .when(!!o.head, (el) => el.child(branchName(theme, o.px)(h_flex()).tooltip("The branch you are on")
-      .child(svg(icon("branch")).size(12).flex_none().text_color(theme.dim)).child(div().min_w(0).truncate().child(o.head))))
+    // The title and the branch are one group, so the picker's menu can be placed from its measured width.
+    .child(h_flex().gap(8).items_center().min_w(0).on_size_change((size, cx) => o.onLeftSize(size.width, cx))
+      .child(div().font_semibold().child("WForDiffs"))
+      .when(!!o.head, (el) => el.child(branchName(theme, o.px)(h_flex()).tooltip("The branch you are on")
+        .child(svg(icon("branch")).size(12).flex_none().text_color(theme.dim)).child(div().min_w(0).truncate().child(o.head)))))
     .child(textButton({ id: "wfordiffs-rev", bordered: true, active: o.menuOpen, color: o.hasRev ? theme.foreground : theme.muted,
       tooltip: "Uncommitted changes, what this branch adds to another, or what a commit changed", label: o.revLabel,
       onClick: (_e, cx) => o.onToggleMenu(cx) }, theme))

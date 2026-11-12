@@ -528,7 +528,7 @@ export default class GitDiff extends View {
     const totals = { add: this.files.reduce((n, f) => n + f.add, 0), del: this.files.reduce((n, f) => n + f.del, 0) };
     return drawHeader(t, {
       px: (n) => this.px(n), cfg: this.cfg, hasRev: !!this.rev, menuOpen: this.menu, fileCount: this.files.length,
-      head: this.head, revLabel: `${this.branch ? `vs ${this.branch}` : this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
+      head: this.head, onLeftSize: (w, cx) => { if (w !== this.headLeftW) { this.headLeftW = w; cx.notify(); } }, revLabel: `${this.branch ? `vs ${this.branch}` : this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
       flash: this.flash, totals, view: { wrap: this.wrap, side: this.side, tree: this.tree }, isFull: !!props()?.full,
       onExpandAll: (cx) => this.expandAll(cx), onCollapseAll: (cx) => this.collapseAll(cx),
       onToggleMenu: (cx) => { if (this.menu) { this.menu = false; this.sub = null; cx.notify(); } else this.openPicker(cx); },
@@ -547,7 +547,7 @@ export default class GitDiff extends View {
   // The picker that opens from the header's button.
   commitPicker(t) {
     return commitMenu(t, {
-      rev: this.rev, branch: this.branch, branches: this.branches, commits: this.shownCommits(), query: this.query,
+      left: 14 + this.headLeftW + 8, rev: this.rev, branch: this.branch, branches: this.branches, commits: this.shownCommits(), query: this.query,
       sub: this.sub, px: (n) => this.px(n), onSub: (sub, cx) => this.openSub(sub, cx),
       onPick: (sha, cx) => this.selectCommit(sha, cx), onPickBranch: (name, cx) => this.selectBranch(name, cx),
       searchInput: this.searchInput });
