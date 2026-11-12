@@ -3,7 +3,7 @@
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar, ScrollHandle, InputState } from "gpui-base";
-import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, setShared, openOverlay, closeOverlay, notify, props, hc, run, terminals } from "herdr";
+import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, setShared, openOverlay, closeOverlay, notify, props, hc, run, terminals, layout } from "herdr";
 import { selectedRows, reference } from "./ask.js";
 import { CHAR_W, GUTTER_W, FILE_H, LINE_H, HUNK_H } from "./metrics.js";
 import { topFile } from "./top-file.js";
@@ -32,6 +32,7 @@ import { hscroll } from "./hscroll.js";
 import { makeHighlighter, attachColors } from "./highlight.js";
 import { treeRows } from "./tree.js";
 import { makeNvim, FIND_NVIM } from "./nvim.js";
+import { isModHidden } from "./panel-hidden.js";
 import { makeLazygit, FIND_LAZYGIT } from "./lazygit.js";
 import { makeToolWindow } from "./utils/tool-window.js";
 
@@ -84,6 +85,9 @@ export default class GitDiff extends View {
     this.searchInput.on("submit", (_e, cx) => { const first = this.shownCommits()[0]; if (first) this.selectCommit(first.sha, cx); });
     // The full-screen copy takes the keyboard as it opens, so the vim keys work at once.
     if (props()?.full) this.handle.focus();
+    // The tool's window floats over the panel's body, so when the panel closes or another mod takes its place
+    // (the buttons at the top right) the window would stay on top of it: close it, and its terminal, then.
+    if (!props()?.full) cx.timer.every(300, (cx) => { if (this.tools.isUp() && isModHidden(layout(), "wfordiffs")) { this.tools.close(); cx.notify(); } });
     this.refresh(cx);
     cx.timer.every(POLL_MS, (cx) => this.refresh(cx));
     this.listenForCommands(cx);

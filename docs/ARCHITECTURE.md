@@ -31,6 +31,7 @@ mod/ui/ui-header.js     the header: title, picker button, toggles, totals
 mod/ui/ui-commit-menu.js  the commit's message block and the picker (Uncommitted, Branches, Commits; the commits list has the search field)
 mod/ui/ui-file-row.js   folder rows, file rows and the tree's guide lines
 mod/top-file.js    pure: which file covers the list's top edge, walking up from the element under the pointer
+mod/panel-hidden.js pure: isModHidden(layout, mod), whether the mod's block is out of sight (its panel closed, or another stack child active); the panel closes its lazygit/nvim window then
 mod/ui/ui-scroll-chip.js  the chip that names the file being scrolled (file-label.js splits its path)
 mod/ui/ui-error-bar.js  an error at the bottom of the panel, with Copy and dismiss buttons (a tool that could not open)
 mod/ui/ui-resize-notice.js  what the panel says under lazygit's window while it steps aside for a resize
