@@ -41,7 +41,7 @@ mod/utils/screen-wait.js  pure: waitForScreen (a window opens on a tool's termin
 mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
 mod/commit-search.js  pure: the picker's search (filterCommits: a hash's start or part of a subject)
 mod/sides.js      pure: a diff's rows -> pairs (old line left, new line right) for the split view
-menu/main.js      the Changes menu (<leader>g), its own mod (wfordiffs-menu): Herdr's menu look, a filter field, the shared views
+menu/main.js      the Changes menu (<leader>G), its own mod (wfordiffs-menu): Herdr's menu look, a filter field, the shared views
 tests/            node:test, one file per module (npm test)
 ```
 

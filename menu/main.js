@@ -1,4 +1,4 @@
-// The Changes menu (<leader>g in the tmux-style prefix). It looks and works as Herdr's own menu does
+// The Changes menu (<leader>G in the tmux-style prefix). It looks and works as Herdr's own menu does
 // (rows, the highlight, arrows, Enter, Esc, the hint on the right), with a filter field on top, and it
 // opens at the top of the window like the picker. Fullscreen opens the panel full screen, Open pane in the side panel; Split view,
 // Tree and Wrap switch the views the panel shows (the shared "gitdiff.view", as in mod/config.js); Settings opens
