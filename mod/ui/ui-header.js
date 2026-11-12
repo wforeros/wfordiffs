@@ -10,7 +10,10 @@ const HEADER_H = 42;
 const icon = (name) => `mods/wfordiffs/icons/${name}.svg`;
 
 // Styles (see AGENTS.md).
-const bar = (theme) => (el) => el.h(HEADER_H).flex_none().px(14).gap(8).items_center().border_b(1).border_color(theme.border);
+// A narrow panel wraps: the buttons (right cluster) drop to a second row under the title, so nothing overlaps or is cut off.
+const bar = (theme) => (el) => el.min_h(HEADER_H).flex_none().flex_wrap().px(14).py(5).gap_x(8).gap_y(4).items_center().border_b(1).border_color(theme.border);
+const leftCluster = (el) => el.gap(8).items_center().min_w(0);
+const rightCluster = (el) => el.gap(8).items_center().flex_none().ml_auto();
 const chip = (theme) => (el) => el.px(5).py(1).rounded(4).border_1().border_color(theme.border).text_size(10).text_color(theme.muted);
 // The branch HEAD is on, beside the picker: text, not a button.
 const branchName = (theme, px) => (el) => el.id("wfordiffs-head").min_w(0).max_w(px(160)).gap(4).items_center().text_size(px(11)).text_color(theme.muted);
@@ -48,7 +51,7 @@ export function header(theme, o) {
   const toggle = (name, iconName, tooltip) => iconButton({
     id: `wfordiffs-${name}`, icon: icon(iconName), tooltip, active: o.view[name],
     onClick: (_e, cx) => o.onSetView({ [name]: !o.view[name] }, cx) }, theme);
-  return bar(theme)(h_flex())
+  const left = leftCluster(h_flex())
     // The title and the branch are one group, so the picker's menu can be placed from its measured width.
     .child(h_flex().gap(8).items_center().min_w(0).on_size_change((size, cx) => o.onLeftSize(size.width, cx))
       .child(div().font_semibold().child("WForDiffs"))
@@ -58,8 +61,8 @@ export function header(theme, o) {
       tooltip: "Uncommitted changes, what this branch adds to another, or what a commit changed", label: o.revLabel,
       onClick: (_e, cx) => o.onToggleMenu(cx) }, theme))
     .child(chip(theme)(div()).child(`${o.fileCount} files`))
-    .when(!!o.flash, (el) => el.child(notice(theme, o.cfg)(div()).child(o.flash)))
-    .child(div().flex_1())
+    .when(!!o.flash, (el) => el.child(notice(theme, o.cfg)(div()).child(o.flash)));
+  const right = rightCluster(h_flex())
     // Only where lazygit is installed (lazygit.js); it opens lazygit in the repo, and while it is up it closes it.
     .when(o.lazygit, (el) => el.child(iconButton({ id: "wfordiffs-lazygit", icon: icon("lazygit"),
       active: o.lazygitOn, tooltip: o.lazygitOn ? "Close lazygit" : "Open lazygit in this repo",
@@ -75,4 +78,5 @@ export function header(theme, o) {
     .child(iconButton({ id: "wfordiffs-config", icon: icon("settings"), tooltip: "Diff colors", onClick: o.onOpenSettings }, theme))
     .child(addedCount(o.totals.add, theme, o.cfg, o.px))
     .child(removedCount(o.totals.del, theme, o.cfg, o.px));
+  return bar(theme)(h_flex()).child(left).child(right);
 }
