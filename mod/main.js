@@ -2,7 +2,7 @@
 // (line numbers, +/- tints, syntax colors). It discards unstaged changes (after a confirm); no commits, no branches.
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
 import { View, div, svg, PathBuilder, Background } from "gpui-kit";
-import { v_flex, h_flex, Scrollbar } from "gpui-base";
+import { v_flex, h_flex, Scrollbar, ScrollHandle } from "gpui-base";
 import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, closeOverlay, notify, props, hc, run } from "herdr";
 import { selectedRows, reference } from "./ask.js";
 import { ADD_W, NUM_W, CHAR_W, GUTTER_W, PAD_L } from "./metrics.js";
@@ -62,6 +62,7 @@ export default class GitDiff extends View {
     this.offsets = {}; // per file id: sideways offset in pixels
     this.drag = null;  // { id, startX, startOff } while dragging a bar
     this.widths = {}; // per scroll area (the list, the tree): its width, to size each file's bar
+    this.heights = {}; // per scroll area: its height, so ctrl-d and ctrl-u move half a page
     this.rev = null; this.commits = []; // rev: the commit shown (null: the uncommitted changes)
     this.message = ""; this.msgOpen = false; // the shown commit's message, folded or not
     this.menu = false; this.sub = false; // the picker beside the title, and its list of commits
@@ -70,6 +71,11 @@ export default class GitDiff extends View {
     this.err = null; // the discard dialog's error, when the discard failed
     // Selecting lines to reference: sel = { path, from, to } (row indexes of that file's diff).
     this.sel = null; this.hover = null; this.dragging = false; this.flash = ""; // a short message in the header
+    // Keys (see key()): the panel takes the keyboard on a click; cursor is the file the keys move on
+    // (its path, or null); reveal scrolls the list to it at the next render.
+    this.handle = cx.focus_handle(); this.cursor = null; this.reveal = false; this.listScroll = ScrollHandle.new();
+    // The full-screen copy takes the keyboard as it opens, so the vim keys work at once.
+    if (props()?.full) this.handle.focus();
     this.refresh(cx);
     cx.timer.every(POLL_MS, (cx) => this.refresh(cx));
     // Key commands from keys.json ("herdr-gitdiff.<command>"); they reach this copy only while it's shown.
@@ -79,6 +85,8 @@ export default class GitDiff extends View {
         if (c === "refresh") this.refresh(cx);
         // The dialog's own copy ignores it: it is already full screen.
         else if (c === "fullscreen") { if (!props()?.full) this.openFull(); }
+        // pane.go (ctrl-a then h/j/k/l, or the keys) gives the panel the keyboard: it takes it on its own handle.
+        else if (c === "focus") this.handle.focus();
         else if (c === "collapse-all") this.open.clear();
         else if (c === "expand-all") {
           for (const f of this.files.slice(0, EXPAND_MAX)) this.open.add(f.path);
@@ -156,6 +164,29 @@ export default class GitDiff extends View {
   toggle(path, cx) {
     if (this.open.has(path)) this.open.delete(path);
     else { this.open.add(path); this.ensure(path, cx); }
+    cx.notify();
+  }
+
+  // Keys, while the panel has the keyboard (a click on it gives it): j and k move the cursor over the
+  // files, ctrl-d and ctrl-u by a tenth of the visible list, l opens the cursor's diff, h closes it,
+  // enter opens or closes it. Other keys pass on.
+  // shortcut: the tenth counts file rows at 28px each, so a list of open diffs moves less than a tenth of the screen.
+  key(e, cx) {
+    const k = e.keystroke;
+    const i = this.files.findIndex((f) => f.path === this.cursor);
+    const tenth = Math.max(1, Math.floor((this.heights["herdr-gitdiff-list"] ?? 0) / this.px(28) / 10));
+    if (k === "j" || k === "k" || k === "ctrl-d" || k === "ctrl-u") {
+      if (!this.files.length) return;
+      const step = { j: 1, k: -1, "ctrl-d": tenth, "ctrl-u": -tenth }[k];
+      const at = Math.min(this.files.length - 1, Math.max(0, i < 0 ? 0 : i + step));
+      this.cursor = this.files[at].path; this.reveal = true;
+    } else if (i >= 0 && (k === "l" || k === "h" || k === "enter")) {
+      const p = this.files[i].path;
+      if (k === "l") { this.open.add(p); this.ensure(p, cx); }
+      else if (k === "h") this.open.delete(p);
+      else this.toggle(p, cx);
+    } else return;
+    cx.stop_propagation();
     cx.notify();
   }
 
@@ -261,7 +292,8 @@ export default class GitDiff extends View {
     const col = e.tree ? "t" : "l"; // the two columns can show the same file: their ids differ
     return h_flex().id(`${col}-f-${f.path}`).relative().w_full().h(this.px(28)).pl(this.pad(e)).pr(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .children(this.guides(e, t))
-      .on_click((_e, cx) => this.toggle(f.path, cx))
+      .when(!e.tree && this.cursor === f.path, (x) => x.bg(t.selected))
+      .on_click((_e, cx) => { this.cursor = f.path; this.toggle(f.path, cx); })
       // A file in the tree has no chevron, only its icon (kept in the folders' column so they line up).
       .child(e.tree ? div().w(this.px(SLOT)).flex_none() : svg(`mods/herdr-gitdiff/icons/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim))
       .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(14).flex_none().text_color(color).tooltip(icon.replace("_", " ")))
@@ -435,7 +467,9 @@ export default class GitDiff extends View {
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
     this.countsW = this.countsWidth();
     const empty = this.error || (this.loading ? "Loading changes…" : this.root ? "No changes" : "No folder");
-    return v_flex().id("herdr-gitdiff").size_full().relative().on_mouse_move((e, cx) => {
+    return v_flex().id("herdr-gitdiff").size_full().relative().track_focus(this.handle)
+      .on_key_down((e, cx) => this.key(e, cx)).on_mouse_down("left", () => this.handle.focus())
+      .on_mouse_move((e, cx) => {
         // Dragging the divider: to the right makes the list wider, so the tree narrower.
         if (!this.splitDrag || !this.bodyW) return;
         const next = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, this.splitDrag.start - (e.position.x - this.splitDrag.x) / this.bodyW));
@@ -540,14 +574,25 @@ export default class GitDiff extends View {
     if (width && id === "herdr-gitdiff-list") this.viewport = width;
     // The open diffs' sideways offsets are kept per column: the same file can show in both.
     const rows = groups.map((g) => (g.body ? { ...g, id: `${id}-${g.id}` } : g));
+    const list = id === "herdr-gitdiff-list";
+    // The rows, flat: each is a child of the scroll area (so the cursor's row has an index to scroll to).
+    const kids = [];
+    let at = -1;
+    for (const g of rows) {
+      if (g.kind === "dir") { kids.push(this.dirRow(g, t)); continue; }
+      if (list && this.cursor === g.file.path) at = kids.length;
+      kids.push(this.fileRow(g.file, t, g));
+      if (g.body) kids.push(hscroll(this, g, t, width));
+    }
+    // A key moved the cursor: the list scrolls to its row, once, after this layout.
+    if (list && this.reveal) { this.reveal = false; if (at >= 0) this.listScroll.scroll_to_item(at); }
     return div().min_w(0).min_h(0).relative()
       .when(basis === null, (e) => e.flex_1()).when(basis !== null, (e) => e.w(basis).flex_none())
-      .on_size_change((size, cx) => { if (size.width !== this.widths[id]) { this.widths[id] = size.width; cx.notify(); } })
-      .child(v_flex().id(id).absolute().inset_0().overflow_y_scroll()
-        .child(v_flex().w_full().children(rows.flatMap((g) => {
-          if (g.kind === "dir") return [this.dirRow(g, t)];
-          return g.body ? [this.fileRow(g.file, t, g), hscroll(this, g, t, width)] : [this.fileRow(g.file, t, g)];
-        }))))
+      .on_size_change((size, cx) => {
+        this.heights[id] = size.height;
+        if (size.width !== this.widths[id]) { this.widths[id] = size.width; cx.notify(); }
+      })
+      .child(v_flex().id(id).absolute().inset_0().overflow_y_scroll().when(list, (e) => e.track_scroll(this.listScroll)).children(kids))
       .child(Scrollbar.vertical(id).mode("always").absolute().inset_0());
   }
 }

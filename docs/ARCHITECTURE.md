@@ -90,6 +90,19 @@ the branch (`COMMITS` in `git.js`).
 `fullscreen` (the command, the header's **full** button) opens the mod again as a dialog over the window,
 with `props: { full: true }` (`openFull`). It is an action, not a toggle: Esc or a click outside shuts the dialog (no `modal`, so the click outside closes it, as the nvim dialog's does). That dialog
 is a copy of its own: it loads its own files and keeps its own picks, so it starts as the list does. Its
-copy hides the **full** button and ignores the command. `<mod>.<command>` reaches shown copies only, so the
+copy takes the keyboard as it opens (`init` calls `handle.focus()`), so the vim keys work at once, and hides the **full** button and ignores the command. `<mod>.<command>` reaches shown copies only, so the
 command does nothing while the panel is hidden from the layout (the button and any caller that opens the
 dialog directly still work).
+
+## Keys in the panel
+
+The root takes the keyboard (`track_focus(this.handle)`), and a click on it gives it (`handle.focus()`).
+`key` handles `j`/`k` (the cursor moves over `this.files`), `l`/`h`/`enter` (the cursor's diff), and
+stops the event only when it handles it. The cursor is a path (`this.cursor`), and its row is marked in
+`fileRow`. The list is a `ScrollHandle` (`listScroll`): the rows are its children, so the cursor's row has
+an index, and `scroll_to_item` runs once per key (`reveal`), not on every render.
+
+The panel is `"focusable": true` in `mod.json`, so `pane.go` reaches it. Herdr then sends the `focus`
+command (`nextCommand`), and the panel calls `handle.focus()`, the same as a click does.
+
+ctrl-d and ctrl-u move the cursor a tenth of the list's visible height (`heights`, set by the list's `on_size_change`), so the list follows it as it does for j and k.

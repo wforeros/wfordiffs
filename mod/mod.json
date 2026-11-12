@@ -1,1 +1,5 @@
-{ "place": "none", "title": "herdr-gitdiff" }
+{
+  "place": "none",
+  "title": "herdr-gitdiff",
+  "focusable": true
+}

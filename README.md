@@ -72,6 +72,16 @@ Showing or hiding the panel is not a mod command (a hidden mod can't receive
 one). It's a layout command, `layout.toggle {"id": "panel"}`, bound in the
 person's `keys.json` (and in tmux-prefix). See the `dots` repo's `herdr/app`.
 
+## Keys in the panel
+
+Click the panel first to give it the keyboard. `j` and `k` move a highlighted cursor down and up
+over the files (the list scrolls to it), `l` opens the cursor's diff, `h` closes it, and `enter`
+opens or closes it. `ctrl-d` and `ctrl-u` move the cursor a tenth of the visible list down and up. Clicking a file moves the cursor there too.
+
+The panel is focusable (`mod.json`): `pane.go` moves the keyboard to it, so the directional keys
+(`alt-h/j/k/l`, or your tmux-style prefix) reach it the way they reach a pane. The panel takes the
+keyboard on that `focus` command, as on a click.
+
 ## Long lines
 
 The list scrolls down only, so the file rows and their `+N`/`−N` counts stay put. A
