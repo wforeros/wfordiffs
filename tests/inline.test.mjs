@@ -39,13 +39,13 @@ test("splitMarks cuts pieces at the marks and keeps their colors", () => {
 });
 
 test("config: defaults, validation and tint", () => {
-  assert.deepEqual(parseConfig(null), { added: null, removed: null, modified: null, line: 0.09, word: 0.38, font: 12, lazygitFull: false });
+  assert.deepEqual(parseConfig(null), { added: null, removed: null, modified: null, line: 0.09, word: 0.38, font: 12, lazygitFull: false, nvimFull: false });
   assert.equal(parseConfig("{nope").line, 0.09);
   const c = parseConfig('{"added":"#00ff00","removed":"red","word":0.6,"line":5}');
-  assert.deepEqual(c, { added: "#00ff00", removed: null, modified: null, line: 0.09, word: 0.6, font: 12, lazygitFull: false });
+  assert.deepEqual(c, { added: "#00ff00", removed: null, modified: null, line: 0.09, word: 0.6, font: 12, lazygitFull: false, nvimFull: false });
   assert.equal(tint("#00ff00", 1), "#00ff00ff");
   assert.equal(tint("#00ff00", 0), "#00ff0000");
-  assert.deepEqual(parseConfig({ added: "#112233" }), { added: "#112233", removed: null, modified: null, line: 0.09, word: 0.38, font: 12, lazygitFull: false });
+  assert.deepEqual(parseConfig({ added: "#112233" }), { added: "#112233", removed: null, modified: null, line: 0.09, word: 0.38, font: 12, lazygitFull: false, nvimFull: false });
   assert.equal(parseConfig({ font: 99 }).font, 24);
   assert.equal(parseConfig({ font: 14.4 }).font, 14);
   assert.equal(parseConfig({ font: "x" }).font, 12);

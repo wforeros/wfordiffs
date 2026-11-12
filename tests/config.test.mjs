@@ -21,4 +21,7 @@ test("lazygitFull is off unless it is true", () => {
   assert.equal(parseConfig(null).lazygitFull, false);
   assert.equal(parseConfig({ lazygitFull: "yes" }).lazygitFull, false);
   assert.equal(parseConfig('{"lazygitFull":true}').lazygitFull, true);
+  assert.equal(parseConfig(null).nvimFull, false);
+  assert.equal(parseConfig({ nvimFull: 1 }).nvimFull, false);
+  assert.equal(parseConfig({ nvimFull: true }).nvimFull, true);
 });

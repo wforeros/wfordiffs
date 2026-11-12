@@ -166,6 +166,8 @@ dialog over the window. A tool is data, `{ id, script, args }`: the `script` is 
 execs it (`FIND_LAZYGIT`, `FIND_NVIM`). One tool is up over the body at a time: opening another closes it, the panel
 follows a resize (`onResized`); the body shows the resize notice only while the window is away (`isAway`), and drops it a moment after the window is back, so the body never shows between them.
 
+nvim and lazygit open over the body (`pane: true`) unless the gear says fullscreen for that tool (`nvimFull`, `lazygitFull` in `config.js`); the full-screen copy has no body to cover, so there they fall back to the dialog.
+
 To add a tool: write its `FIND_*` launch next to its availability check (as `lazygit.js`, `nvim.js`), then in
 `main.js` call `this.runTool({ id, script, args }, cx, { pane: true })` from a button, a key or a command; `pane: false`
 (the default) is the dialog. `main.js` keeps what is specific to a tool: whether it is installed, which button shows it

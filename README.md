@@ -17,13 +17,13 @@ A Changes panel for [Herdr](https://herdr.dev): the files changed in the repo yo
 - Toggle line wrap for long lines.
 - Select lines or blocks and copy a `path#L12-L14` reference to the clipboard.
 - Discard unstaged changes per file, with a confirmation.
-- Customize the added and removed colors from a palette, the tint strength, the font size (9–24 px) and where Lazygit opens (over the panel or fullscreen) from the gear settings, with a reset to defaults.
+- Customize the added and removed colors from a palette, the tint strength, the font size (9–24 px) and where Lazygit and Neovim open (over the panel or fullscreen) from the gear settings, with a reset to defaults.
 - Keyboard navigation (`j`, `k`, `l`, `h`, `enter`) and commands `refresh`, `expand-all`, `collapse-all`, `fullscreen`, `lazygit-fullscreen`, `lazygit-pane`.
 - Makes no commits and no branches.
 
 ### Optional extras
 
-- **Open in Neovim**: with `nvim` installed, a block's menu opens the file at that line.
+- **Open in Neovim**: with `nvim` installed, the list's nvim icon opens the file, and a block's menu opens it at that line, over the panel's body like Lazygit, or in a large dialog if the gear settings say Fullscreen for Neovim (the full-screen copy always uses the dialog). Quitting nvim brings the list back.
 - **Lazygit**: with `lazygit` installed, the header's button opens it over the panel's body (the header stays; click again to close it), or in a large dialog if the gear settings say Fullscreen. The menu offers both: Lazygit > Fullscreen and Lazygit > Pane. The commands `lazygit-fullscreen` (a large dialog over the window) and `lazygit-pane` (over the panel's body) can be bound as `herdr-gitdiff.<command>` in `keys.json`.
 
 Without them the mod works, but these options don't appear.

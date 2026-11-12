@@ -276,9 +276,9 @@ export default class GitDiff extends View {
     });
   }
 
-  // nvim on a file, at a line (a block's, from its menu or the e key).
+  // nvim on a file, at a line (a block's, from its menu or the e key), over the panel's body like lazygit, or in the dialog per the gear's setting.
   openNvim(path, cx, line = null) {
-    this.runTool({ id: "nvim", script: FIND_NVIM, args: [...(line ? [`+${line}`] : []), path] }, cx);
+    this.runTool({ id: "nvim", script: FIND_NVIM, args: [...(line ? [`+${line}`] : []), path] }, cx, { pane: !this.cfg.nvimFull });
   }
 
   // The panel's body (everything under the header). `at` takes window pixels (what the pointer's box is in),
@@ -508,7 +508,7 @@ export default class GitDiff extends View {
       revLabel: `${this.branch ? `vs ${this.branch}` : this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
       flash: this.flash, totals, view: { wrap: this.wrap, side: this.side, tree: this.tree }, isFull: !!props()?.full,
       onToggleMenu: (cx) => { if (this.menu) { this.menu = false; this.sub = null; cx.notify(); } else this.openPicker(cx); },
-      onOpenSettings: () => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 560, props: { settings: true } }),
+      onOpenSettings: () => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 596, props: { settings: true } }),
       onSetView: (patch, cx) => this.setView(patch, cx), onOpenFull: () => this.openFull(),
       lazygit: this.lazygit, lazygitOn: this.tools.isUp("lazygit"), onToggleLazygit: (cx) => this.toggleLazygit(cx) });
   }
