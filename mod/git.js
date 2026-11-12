@@ -11,6 +11,35 @@ const COMMITS = 4; // how many recent commits the picker lists
 export const noticeRows = (text) => [{ kind: "@", text }];
 
 export function makeGit({ exec, readTextFile }) {
+  // The file as text, or null when it is not UTF-8 (or can't be read). Some hosts throw instead of returning null.
+  async function readText(path, on) {
+    try { return await readTextFile(path, { on }); } catch { return null; }
+  }
+
+  // git's own check (a NUL in the first 8000 bytes), so the file's text is never read for it. The output is
+  // "-\t-\t…" for a binary file: the first field is "-". Not a git repo or an error: treated as text.
+  async function isBinaryUntracked(g, path) {
+    const r = await exec("git", [...GIT, "--literal-pathspecs", "diff", "--no-index", "--numstat", "--", "/dev/null", path], g);
+    return r.code <= 1 && r.stdout.startsWith("-\t");
+  }
+
+  // The paths whose text is not UTF-8 on the side the diff shows: the base (`base`) and the commit (`rev`), or,
+  // without a rev, the worktree file. One shell call for all of them: iconv reads the bytes on the repo's machine
+  // and only the indices of the bad files come back (ASCII), so the text itself never crosses exec.
+  // A missing blob (a new file, the empty tree) reads as empty, which is valid. iconv exits 1 only on bad input,
+  // so a missing iconv marks nothing.
+  const UTF8_SCRIPT = 'b=$1; r=$2; shift 2; i=0; for p in "$@"; do bad=0; ' +
+    'git --no-optional-locks show "$b:$p" 2>/dev/null | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1; [ $? -eq 1 ] && bad=1; ' +
+    'if [ -n "$r" ]; then git --no-optional-locks show "$r:$p" 2>/dev/null | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1; [ $? -eq 1 ] && bad=1; ' +
+    'elif [ -f "$p" ]; then iconv -f UTF-8 -t UTF-8 < "$p" >/dev/null 2>&1; [ $? -eq 1 ] && bad=1; fi; ' +
+    'if [ $bad -eq 1 ]; then echo $i; fi; i=$((i+1)); done';
+  async function notUtf8(g, paths, base, rev = null) {
+    if (!paths.length) return new Set();
+    const r = await exec("sh", ["-c", UTF8_SCRIPT, "sh", base, rev ?? "", ...paths], g);
+    const idx = r.stdout.split("\n").filter(Boolean).map(Number);
+    return new Set(idx.map((i) => paths[i]));
+  }
+
   // rev: a commit to show instead of the worktree; its changes are the diff against its first parent.
   async function load(loc, rev = null) {
     const top = await exec("git", [...GIT, "rev-parse", "--show-toplevel"], { cwd: loc.cwd, on: loc.on });
@@ -29,7 +58,9 @@ export function makeGit({ exec, readTextFile }) {
         run(["log", "-1", "--format=%B", rev]), // the whole message, subject and body
       ]);
       const status = parseNameStatus(ns.stdout);
-      const files = parseNumstat(num.stdout).map((f) => ({ ...f, status: status[f.path] ?? "M", unstaged: false }));
+      const listed = parseNumstat(num.stdout).map((f) => ({ ...f, status: status[f.path] ?? "M", unstaged: false }));
+      const bad = await notUtf8(g, listed.map((f) => f.path), from, rev);
+      const files = listed.map((f) => (bad.has(f.path) ? { ...f, binary: true } : f));
       return { root: g.cwd, base: from, rev, files, commits, message: body.stdout.trim(), error: null };
     }
     const head = await run(["rev-parse", "--verify", "-q", "HEAD"]);
@@ -43,12 +74,17 @@ export function makeGit({ exec, readTextFile }) {
     ]);
     const status = parseNameStatus(ns.stdout);
     const dirty = new Set(unstaged.stdout.split("\0").filter(Boolean));
-    const files = parseNumstat(num.stdout).map((f) => ({ ...f, status: status[f.path] ?? "M", unstaged: dirty.has(f.path) }));
-    const untracked = await Promise.all(others.stdout.split("\0").filter(Boolean).slice(0, LIMIT).map(async (path) => {
-      const text = await readTextFile(`${g.cwd}/${path}`, { on: g.on });
-      const binary = text?.includes("\0") ?? false;
-      const lines = text === null || binary ? 0 : text.split("\n").length - Number(text.endsWith("\n"));
-      return { path, add: lines, del: 0, binary, status: "A", untracked: true, unstaged: true };
+    const listed = parseNumstat(num.stdout).map((f) => ({ ...f, status: status[f.path] ?? "M", unstaged: dirty.has(f.path) }));
+    const newPaths = others.stdout.split("\0").filter(Boolean).slice(0, LIMIT);
+    // Binary, or not UTF-8 (either side of the diff, or the new file): listed with "binary" and not opened.
+    const bad = await notUtf8(g, [...listed.map((f) => f.path), ...newPaths], base);
+    const files = listed.map((f) => (bad.has(f.path) ? { ...f, binary: true } : f));
+    const untracked = await Promise.all(newPaths.map(async (path) => {
+      const binary = bad.has(path) || await isBinaryUntracked(g, path);
+      const text = binary ? null : await readText(`${g.cwd}/${path}`, g.on);
+      const isText = text !== null && !text.includes("\0");
+      const lines = isText ? text.split("\n").length - Number(text.endsWith("\n")) : 0;
+      return { path, add: lines, del: 0, binary: !isText, status: "A", untracked: true, unstaged: true };
     }));
     return { root: g.cwd, base, rev: null, files: [...files, ...untracked], commits, error: null };
   }
@@ -56,7 +92,7 @@ export function makeGit({ exec, readTextFile }) {
   async function diffFor(loc, f, base, rev = null) {
     if (f.binary) return noticeRows("Binary file");
     if (f.untracked) {
-      const text = await readTextFile(`${loc.cwd}/${f.path}`, { on: loc.on });
+      const text = await readText(`${loc.cwd}/${f.path}`, loc.on);
       if (text === null) return noticeRows("Cannot read this file");
       const lines = text.split("\n");
       if (lines.at(-1) === "") lines.pop();

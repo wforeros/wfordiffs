@@ -5,7 +5,7 @@
 ```
 mod/main.js       the GitDiff view: refresh loop, key commands, and render() composing the pieces below from its state
 mod/view-state.js pure: initialState() (every field, grouped), commitSwitchState() (what a commit switch resets)
-mod/git.js        makeGit({ exec, readTextFile }) -> load (changed files, or a commit's, plus the last 4 commits), diffFor (one file's rows), discard (one file's unstaged changes)
+mod/git.js        makeGit({ exec, readTextFile }) -> load (changed files, or a commit's, plus the last 4 commits), diffFor (one file's rows), discard (one file's unstaged changes). A file whose text is not UTF-8 (base, commit or worktree side) is listed as binary: `notUtf8` runs `iconv` on the repo's machine, so the text never crosses `exec`
 mod/highlight.js  makeHighlighter({ exec, settings }) -> bat colors; attachColors (pure)
 mod/hscroll.js    one open file's sideways scrolling (bar, wheel, drag); state lives on the view
 mod/parse.js      pure: numstat, name-status and unified-diff parsing

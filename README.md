@@ -186,7 +186,7 @@ Simple Icons (CC0; the mark is its owners' trademark).
 
 - git runs where the shown space lives: `on: "wsl"` for the WSL machine.
 - Refreshes every 5 seconds; a file's diff loads when you open it.
-- Untracked files show as added. Binary files show `binary`.
+- Untracked files show as added. Binary files show `binary`. A file that is not UTF-8 text is listed the same way, and it can't be opened yet (no diff, no nvim); its trash still works.
 
 ## Limits
 

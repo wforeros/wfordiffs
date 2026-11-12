@@ -32,6 +32,9 @@ const { highlight } = makeHighlighter({ exec, settings });
 const { hasNvim } = makeNvim({ exec });
 const { hasLazygit } = makeLazygit({ exec });
 
+// A binary (or non-UTF-8) file is listed but not opened: no diff, no nvim. // shortcut: its trash stays, so it can still be discarded.
+const openable = (f) => !f.binary;
+
 const POLL_MS = 5000;
 // The tree column's share of the body when the tree is on, kept between these by the divider.
 const SPLIT_MIN = 0.2, SPLIT_MAX = 0.8;
@@ -72,7 +75,7 @@ export default class GitDiff extends View {
         else if (command === "focus") this.handle.focus();
         else if (command === "collapse-all") this.open.clear();
         else if (command === "expand-all") {
-          for (const f of this.files.slice(0, EXPAND_MAX)) this.open.add(f.path);
+          for (const f of this.files.slice(0, EXPAND_MAX)) if (openable(f)) this.open.add(f.path);
           for (const p of this.open) this.loadDiff(p, cx);
         }
         cx.notify();
@@ -96,10 +99,10 @@ export default class GitDiff extends View {
         this.loc = next.root ? { cwd: next.root, on: loc.on } : null;
         this.nvim = this.loc ? await hasNvim(this.loc) : false;
         this.lazygit = this.loc ? await hasLazygit(this.loc) : false;
-        const fp = JSON.stringify([rev, ...next.files.map((f) => [f.path, f.add, f.del, f.status])]);
+        const fp = JSON.stringify([rev, ...next.files.map((f) => [f.path, f.add, f.del, f.status, f.binary])]);
         if (fp !== this.fp) {
           this.fp = fp; this.files = next.files; this.diffs = {}; this.sel = null; this.block = null; // the rows it pointed at are gone
-          for (const p of [...this.open]) if (!next.files.some((f) => f.path === p)) this.open.delete(p);
+          for (const p of [...this.open]) if (!next.files.some((f) => f.path === p && openable(f))) this.open.delete(p);
           for (const p of this.open) this.loadDiff(p, cx);
         }
       } catch (e) {
@@ -125,7 +128,7 @@ export default class GitDiff extends View {
   // Loads one file's diff once per refresh; a result from an older refresh is dropped.
   loadDiff(path, cx) {
     const f = this.files.find((x) => x.path === path);
-    if (!f || !this.loc || this.diffs[path]) return;
+    if (!f || !this.loc || this.diffs[path] || !openable(f)) return;
     const fp = this.fp, loc = this.loc, base = this.base, rev = this.rev;
     cx.spawn(async (cx) => {
       let rows;
@@ -147,6 +150,8 @@ export default class GitDiff extends View {
   }
 
   toggleFile(path, cx) {
+    const f = this.files.find((x) => x.path === path);
+    if (f && !openable(f)) return cx.notify(); // a binary file has no diff to open
     if (this.open.has(path)) this.open.delete(path);
     else { this.open.add(path); this.loadDiff(path, cx); }
     cx.notify();
@@ -167,7 +172,7 @@ export default class GitDiff extends View {
       this.cursor = this.files[at].path; this.reveal = true;
     } else if (i >= 0 && (k === "l" || k === "h" || k === "enter")) {
       const p = this.files[i].path;
-      if (k === "l") { this.open.add(p); this.loadDiff(p, cx); }
+      if (k === "l") { if (openable(this.files[i])) { this.open.add(p); this.loadDiff(p, cx); } }
       else if (k === "h") this.open.delete(p);
       else this.toggleFile(p, cx);
     } else if (k === "e" && this.block) {
@@ -269,7 +274,7 @@ export default class GitDiff extends View {
   fileRow(f, t, entry) {
     return drawFileRow(f, entry, t, {
       px: (n) => this.px(n), cfg: this.cfg, open: this.open.has(f.path), isCursor: this.cursor === f.path,
-      nvimAvailable: !this.rev && this.nvim, countsWidth: this.countsW,
+      nvimAvailable: !this.rev && this.nvim && openable(f), countsWidth: this.countsW,
       onSelect: (cx) => { this.cursor = f.path; this.toggleFile(f.path, cx); },
       onOpenNvim: (cx) => this.openNvim(f.path, cx), onDiscard: () => this.askDiscard(f) });
   }

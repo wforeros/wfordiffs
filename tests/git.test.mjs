@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { makeGit } from "../mod/git.js";
@@ -107,4 +107,66 @@ test("a commit's changes, and the recent commits", async () => {
   assert.deepEqual(rows.filter((x) => x.kind === "+").map((x) => x.text), ["two"]);
   const root = await load(loc, head.commits[1].sha); // the first commit has no parent
   assert.deepEqual(root.files.map((f) => f.path), ["a.txt"]);
+});
+
+test("untracked binary: listed as binary, and its text is never read", async () => {
+  const dir = scratchRepo();
+  write(dir, "init.txt", "i\n"); git(dir, "add", "."); git(dir, "commit", "-qm", "init");
+  writeFileSync(join(dir, "pic.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2]));
+  write(dir, "note.txt", "one\ntwo\n");
+  const reads = [];
+  const spy = async (path, opts) => { reads.push(path); return readTextFile(path, opts); };
+  const { load: loadSpy } = makeGit({ exec, readTextFile: spy });
+  const r = await loadSpy({ cwd: dir, on: null });
+  const by = Object.fromEntries(r.files.map((f) => [f.path, f]));
+  assert.equal(by["pic.png"].binary, true);
+  assert.equal(by["note.txt"].binary, false);
+  assert.equal(by["note.txt"].add, 2);
+  assert.equal(reads.some((p) => p.endsWith("pic.png")), false);
+});
+
+test("untracked text that is not UTF-8 (or can't be read) is listed as binary", async () => {
+  const dir = scratchRepo();
+  write(dir, "init.txt", "i\n"); git(dir, "add", "."); git(dir, "commit", "-qm", "init");
+  writeFileSync(join(dir, "latin.txt"), Buffer.from("caf\xe9 sin nul\n", "latin1"));
+  const throwing = async () => { throw new Error("stream did not contain valid UTF-8"); };
+  const { load: loadThrow, diffFor: diffThrow } = makeGit({ exec, readTextFile: throwing });
+  const r = await loadThrow({ cwd: dir, on: null });
+  const f = r.files.find((x) => x.path === "latin.txt");
+  assert.equal(f.binary, true);
+  assert.equal(f.add, 0);
+  // Its diff, if asked for anyway, is a notice, not a crash.
+  const rows = await diffThrow({ cwd: dir, on: null }, { ...f, binary: false }, r.base);
+  assert.equal(rows[0].kind, "@");
+  assert.equal(rows[0].text, "Cannot read this file");
+});
+
+test("tracked and modified: non-UTF-8 on either side is binary, valid UTF-8 is not", async () => {
+  const dir = scratchRepo();
+  writeFileSync(join(dir, "was-latin.txt"), Buffer.from("caf\xe9\n", "latin1"));
+  write(dir, "accents.txt", "café\n");
+  writeFileSync(join(dir, "data.bin"), Buffer.from([0, 1, 2, 3]));
+  git(dir, "add", "."); git(dir, "commit", "-qm", "init");
+  // Modified: a UTF-8 file gets accents, a non-UTF-8 text goes UTF-8, and a Latin-1 one replaces UTF-8 text.
+  write(dir, "accents.txt", "café y más\n");
+  write(dir, "was-latin.txt", "café utf8\n");
+  writeFileSync(join(dir, "data.bin"), Buffer.from([0, 9, 9]));
+  write(dir, "now-latin.txt", "ok\n"); git(dir, "add", "now-latin.txt"); git(dir, "commit", "-qm", "add");
+  writeFileSync(join(dir, "now-latin.txt"), Buffer.from("caf\xe9\n", "latin1"));
+  const r = await load({ cwd: dir, on: null });
+  const by = Object.fromEntries(r.files.map((f) => [f.path, f.binary]));
+  assert.equal(by["accents.txt"], false);
+  assert.equal(by["was-latin.txt"], true); // its base side is not UTF-8
+  assert.equal(by["data.bin"], true);
+  assert.equal(by["now-latin.txt"], true); // the worktree side is not UTF-8
+});
+
+test("a commit with a non-UTF-8 file: listed as binary when that commit is shown", async () => {
+  const dir = scratchRepo();
+  write(dir, "a.txt", "a\n"); git(dir, "add", "."); git(dir, "commit", "-qm", "one");
+  writeFileSync(join(dir, "legacy.txt"), Buffer.from("caf\xe9\n", "latin1"));
+  git(dir, "add", "."); git(dir, "commit", "-qm", "two");
+  const head = git(dir, "rev-parse", "HEAD").trim();
+  const r = await load({ cwd: dir, on: null }, head);
+  assert.equal(r.files.find((f) => f.path === "legacy.txt").binary, true);
 });

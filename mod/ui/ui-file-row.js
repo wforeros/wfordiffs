@@ -104,7 +104,8 @@ export function fileRow(file, entry, theme, options) {
   const icon = STATUS_ICONS[file.status] ?? STATUS_ICONS.M;
   const column = entry.tree ? "t" : "l"; // the two columns can show the same file: their ids differ
   // A file in the tree has no chevron, only its icon (kept in the folders' column so they line up).
-  const chevron = entry.tree
+  // A binary file has no diff to open, so it has no chevron either.
+  const chevron = entry.tree || file.binary
     ? div().w(px(SLOT)).flex_none()
     : svg(`${ICONS}/chevron-${options.open ? "down" : "right"}.svg`).size(12).flex_none().text_color(theme.dim);
   // The list's icon is larger with its larger name; the tree's matches the folders' icons (14).
