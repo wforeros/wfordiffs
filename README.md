@@ -76,7 +76,7 @@ person's `keys.json` (and in tmux-prefix). See the `dots` repo's `herdr/app`.
 
 Click the panel first to give it the keyboard. `j` and `k` move a highlighted cursor down and up
 over the files (the list scrolls to it), `l` opens the cursor's diff, `h` closes it, and `enter`
-opens or closes it. `ctrl-d` and `ctrl-u` move the cursor a tenth of the visible list down and up. Clicking a file moves the cursor there too.
+opens or closes it. `ctrl-d` and `ctrl-u` move the cursor a tenth of the visible list down and up. Clicking a file moves the cursor there too. A click on a changed line selects its block; hovering or selecting a block shows a `...` button at the top right of its first line (its menu has "Abrir en nvim", on the block's first line, when nvim is installed), and `e` opens nvim there too.
 
 The panel is focusable (`mod.json`): `pane.go` moves the keyboard to it, so the directional keys
 (`alt-h/j/k/l`, or your tmux-style prefix) reach it the way they reach a pane. The panel takes the
@@ -136,6 +136,10 @@ Click it and a dialog asks first. For a tracked file, the unstaged changes go: t
 goes back to its staged version, so anything you staged stays. For a new file (untracked),
 the dialog deletes it. Either way it can't be undone, and the button is red. Files whose
 changes are all staged get no icon. The icon is in the list, not in the tree view.
+
+## Lazygit
+
+When lazygit is installed on the repo's machine, a **Lazygit** button sits beside the gear in the header. It opens lazygit in the repo in a big dialog over the panel, like nvim does.
 
 ## Open in nvim
 

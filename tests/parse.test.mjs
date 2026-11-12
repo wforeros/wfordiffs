@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseNumstat, parseNameStatus, parseDiff } from "../mod/parse.js";
+import { parseNumstat, parseNameStatus, parseDiff, numberBlocks } from "../mod/parse.js";
 import { git, scratchRepo, write } from "./helpers.mjs";
 
 function repo() {
@@ -35,4 +35,21 @@ test("parseDiff rows and line numbers", () => {
 test("synthetic diff of an untracked file", () => {
   const synth = parseDiff("@@ -0,0 +1,2 @@\n+x\n+y");
   assert.deepEqual(synth.slice(1).map((r) => r.n), [1, 2]);
+});
+
+test("numberBlocks groups each run of changed rows, and a context line or a header ends it", () => {
+  const rows = [
+    { kind: "@", text: "@@" }, { kind: "-", text: "a" }, { kind: "+", text: "b" },
+    { kind: " ", text: "c" }, { kind: "+", text: "d" }, { kind: "@", text: "@@" }, { kind: "+", text: "e" },
+  ];
+  const out = numberBlocks(rows);
+  assert.deepEqual(out.map((r) => r.blk), [undefined, 0, 0, undefined, 1, undefined, 2]);
+  assert.deepEqual(out.map((r) => !!r.first), [false, true, false, false, true, false, true]);
+  assert.equal(rows[1].blk, undefined, "the input rows are not changed");
+});
+
+test("numberBlocks takes its predicate, for the split view's pairs", () => {
+  const pairs = [{ kind: "pair", left: { kind: "-" }, right: null }, { kind: "pair", left: { kind: " " }, right: { kind: " " } }];
+  const isChanged = (r) => r.kind === "pair" && r.left?.kind !== " ";
+  assert.deepEqual(numberBlocks(pairs, isChanged).map((r) => [r.blk, !!r.first]), [[0, true], [undefined, false]]);
 });

@@ -15,6 +15,7 @@ mod/inline.js    pure: word-level marks inside a changed line (markWords, splitM
 mod/config.js    pure: tint colors and strengths (kept in shared("gitdiff.cfg"))
 mod/settings-view.js  the gear window: palette, steppers, preview (same mod, props().settings)
 mod/nvim.js       makeNvim({ exec }) -> hasNvim (is nvim on the repo's machine, cached per machine; the list's icon shows only then); FIND_NVIM (the launch, same spots)
+mod/lazygit.js    makeLazygit({ exec }) -> hasLazygit (the same for lazygit: the header's Lazygit button shows only then); FIND_LAZYGIT (the launch)
 mod/discard-view.js   the confirm dialog of a discard (same mod, props().discard); main.js does the work
 mod/ask.js       pure: selected rows -> "<path>#L1-L3" reference
 mod/tree.js      pure: changed files -> folder and file rows for the tree view
@@ -117,6 +118,22 @@ an index, and `scroll_to_item` runs once per key (`reveal`), not on every render
 
 The panel is `"focusable": true` in `mod.json`, so `pane.go` reaches it. Herdr then sends the `focus`
 command (`nextCommand`), and the panel calls `handle.focus()`, the same as a click does.
+
+## Blocks of changes
+
+A block is a run of consecutive `+`/`-` rows (`numberBlocks` in `parse.js`; a split pair counts
+through either side). `loadDiff` numbers each open diff's blocks, so a row knows its block (`blk`)
+and whether it starts one (`first`). The split view's pairs take the same numbers.
+
+- A click on a changed row selects its block (`selectBlock`). Nothing is tinted; a selected block
+  only shows its button.
+- Hovering a row sets the block under the pointer (`hoverBlockAt`). The first row of a hovered or
+  selected block shows a `...` button at its top right (`blockButton`, drawn by `blockAction` in
+  `ui-diff-row.js` as a `Popover` from gpui-base). It shows only where nvim can open the file
+  (`showAction`, `nvimOpenable`).
+- Its menu's "Abrir en nvim" opens the file at the block's first line (`openNvim` with `+N` before
+  the path). The key `e` does the same with a selected block.
+- The keys do not move between blocks: `j`/`k`/`h`/`l` work on the files as before.
 
 ## The shared views and the menu
 

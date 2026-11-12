@@ -30,6 +30,8 @@ const notice = (theme, cfg) => (el) => el.min_w(0).truncate().text_size(10).text
  * @property {() => void} onOpenSettings
  * @property {(patch: object, cx: object) => void} onSetView patch of { wrap, side, tree }
  * @property {() => void} onOpenFull
+ * @property {boolean} lazygit lazygit is installed where the repo is: its button shows
+ * @property {(cx: object) => void} onOpenLazygit
  */
 
 /**
@@ -49,6 +51,9 @@ export function header(theme, o) {
     .when(!!o.flash, (el) => el.child(notice(theme, o.cfg)(div()).child(o.flash)))
     .child(div().flex_1())
     .child(iconButton({ id: "herdr-gitdiff-config", icon: SETTINGS_ICON, tooltip: "Diff colors", onClick: o.onOpenSettings }, theme))
+    // Only where lazygit is installed (lazygit.js); it opens lazygit in the repo.
+    .when(o.lazygit, (el) => el.child(textButton({ id: "herdr-gitdiff-lazygit", label: "Lazygit",
+      tooltip: "Open lazygit in this repo", onClick: (_e, cx) => o.onOpenLazygit(cx) }, theme)))
     .child(toggle("wrap", "wrap"))
     .child(toggle("side", "split", "Before on the left, after on the right"))
     .child(toggle("tree", "tree", "Show the changed folders as a tree, on the right"))

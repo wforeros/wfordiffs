@@ -13,6 +13,9 @@ export function commitSwitchState() {
     open: new Set(),
     diffs: {},
     sel: null,
+    block: null,
+    hoverBlock: null,
+    blockMenu: null,
     fp: "",
     loading: true,
   };
@@ -33,6 +36,7 @@ export function initialState() {
     loading: true,
     busy: false,
     nvim: false,              // nvim is installed where the repo is: the list shows its icon (nvim.js)
+    lazygit: false,           // lazygit is installed there too: the header shows its button (lazygit.js)
 
     // The commit shown (null: the uncommitted changes) and its picker
     rev: null,
@@ -59,6 +63,11 @@ export function initialState() {
     splitDrag: null,          // { x, start } while the divider is dragged
     offsets: {},              // per file id: sideways offset in px
     drag: null,               // { id, startX, startOff } while dragging a file's bar
+
+    // Blocks of changes (parse.js numberBlocks): a click selects one, the pointer over one shows its "..."
+    block: null,              // the selected block: { path, n }
+    hoverBlock: null,         // the block under the pointer: { path, n }
+    blockMenu: null,          // the block whose "..." menu is open: { path, n }
 
     // Selecting lines to reference (line-selection.js)
     sel: null,

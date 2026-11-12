@@ -2,7 +2,7 @@
 // line in the side-by-side view (splitRow), and the pieces they share. They only draw: the view
 // hands in what the panel looks like (DiffView) and what to do on a press or a hover.
 import { div, PathBuilder, Background } from "gpui-kit";
-import { h_flex } from "gpui-base";
+import { h_flex, v_flex, Popover } from "gpui-base";
 import { tint, shade } from "./config.js";
 import { lineColor } from "./diff-colors.js";
 import { langOf, tokens } from "./lexer.js";
@@ -32,6 +32,8 @@ const HATCH_PERIOD = 14; // distance between the hatching's diagonals
  * @property {boolean} hovered the pointer is over the row (its "+" shows)
  * @property {(cx: object) => void} onPress a press on the "+"
  * @property {(hovered: boolean, cx: object) => void} onHover the pointer entered or left the row
+ * @property {(cx: object) => void} [onClick] a click on the row (it selects the row's block)
+ * @property {object|null} [action] the block's "..." button, drawn at the row's top right (blockAction)
  */
 
 // Styles (see AGENTS.md).
@@ -59,6 +61,34 @@ export const sidesHeader = (theme, px) => {
     .child(side().child("Before"))
     .child(side().border_l(1).border_color(theme.border).child("After"));
 };
+
+// The "..." button of a block, and the menu it opens: a small square lifted off the code by the background.
+const actionButton = (theme) => (el) => el.px(6).rounded(4).bg(theme.background).text_color(theme.accent ?? theme.muted)
+  .cursor_pointer().hover((s) => s.bg(theme.hover)).tooltip("Block actions");
+const menuPanel = (theme) => (el) => el.min_w(150).rounded(6).border_1().border_color(theme.border).bg(theme.popover ?? theme.background).py(4);
+const menuRow = (theme, px) => (el) => el.px(10).h(px(26)).flex().items_center().cursor_pointer().hover((s) => s.bg(theme.hover));
+
+/**
+ * A block's "..." button at its top right, and the menu it opens (a Popover anchored to the button).
+ * @typedef {object} BlockActionOptions
+ * @property {string} id the button's id, unique per block
+ * @property {(n: number) => number} px scales a size at 12px
+ * @property {boolean} open the menu is open
+ * @property {(open: boolean, cx: object) => void} onOpenChange the menu opened or shut (a press outside shuts it)
+ * @property {{ id: string, label: string, onClick: (cx: object) => void }[]} items the menu's rows
+ */
+
+/**
+ * @param {BlockActionOptions} o
+ * @param {object} theme
+ */
+export function blockAction(o, theme) {
+  const trigger = actionButton(theme)(div().id(o.id)).child("...");
+  const menu = menuPanel(theme)(v_flex()).children(o.items.map((item) => menuRow(theme, o.px)(div().id(item.id))
+    .on_click((_e, cx) => item.onClick(cx)).child(item.label)));
+  return div().absolute().top(2).right(4).child(Popover.new(`${o.id}-menu`).anchor("bottom_right").open(o.open)
+    .on_open_change(o.onOpenChange).trigger(trigger).content(menu));
+}
 
 /**
  * The bar at a changed line's left edge, in the full color of its change. A plain box in the row
@@ -129,16 +159,18 @@ export function codeRow(row, path, theme, options) {
   // Wrapped rows line up on their first line: the numbers sit at the top, not centred against the
   // whole wrapped block. The bar is the row's left edge (a context line keeps the space), then the
   // gutter, which starts at the chevron's inset (PAD_L) so the numbers line up under it.
-  return lineBox(view)(h_flex().id(`row-${options.key}`).w_full())
+  return lineBox(view)(h_flex().id(`row-${options.key}`).w_full().relative())
     .when(!view.wrap && options.width > 0, (e) => e.min_w(options.width))
     .bg(options.picked ? theme.selected : lineBg ?? theme.background)
     .on_hover((hovered, cx) => { options.onHover(hovered, cx); cx.notify(); })
+    .when(!!options.onClick, (e) => e.on_click((_e, cx) => options.onClick(cx)))
     .child(changeBar(base, view))
     .child(div().w(view.px(PAD_L - 3)).flex_none())
     .child(numberCell(row.o ?? "", base ?? theme.dim, view))
     .child(numberCell(row.n ?? "", base ?? theme.dim, view))
     .child(plus)
-    .child(codeText(row, path, theme, base, 1, view));
+    .child(codeText(row, path, theme, base, 1, view))
+    .when(!!options.action, (e) => e.child(options.action));
 }
 
 // An empty side has no line: a block in the hatching's color from the side's left edge to where the
@@ -176,11 +208,16 @@ function sideHalf(row, number, isRight, path, theme, offset, view) {
  * @param {object} theme
  * @param {number} offset sideways scroll in px
  * @param {DiffView} view
+ * @param {{ onHover?: (hovered: boolean, cx: object) => void, onClick?: (cx: object) => void, action?: object|null }} [hooks]
+ *   the pair's block: hover, a click, and the "..." button (the same as codeRow's)
  */
-export function splitRow(row, path, theme, offset, view) {
+export function splitRow(row, path, theme, offset, view, hooks = {}) {
   if (row.kind === "@") return hunkHeader(row.text, theme, view.px);
   if (row.kind === "sides") return sidesHeader(theme, view.px);
-  return h_flex().w_full().items_stretch()
+  return h_flex().w_full().items_stretch().relative()
+    .when(!!hooks.onHover, (e) => e.on_hover((hovered, cx) => { hooks.onHover(hovered, cx); cx.notify(); }))
+    .when(!!hooks.onClick, (e) => e.on_click((_e, cx) => hooks.onClick(cx)))
     .child(sideHalf(row.left, row.left?.o, false, path, theme, offset, view))
-    .child(sideHalf(row.right, row.right?.n, true, path, theme, offset, view));
+    .child(sideHalf(row.right, row.right?.n, true, path, theme, offset, view))
+    .when(!!hooks.action, (e) => e.child(hooks.action));
 }

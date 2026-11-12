@@ -19,6 +19,23 @@ export function parseNameStatus(text) {
   return status;
 }
 
+// A block of changes: a run of consecutive changed rows (the "+" and "-" lines, or the split view's pairs
+// that hold them). Returns copies: each changed row gets its block's number (blk), and the first row of
+// a block gets first: true. Any other row (a context line, a hunk header) ends the run.
+/**
+ * @param {object[]} rows a file's diff rows (or a split view's pairs, with `changed` for them)
+ * @param {(row: object) => boolean} [changed] which rows change (the list's "+" and "-" by default)
+ * @returns {object[]} copies of the rows: blk on each changed row, and first on a block's first row
+ */
+export function numberBlocks(rows, changed = (r) => r.kind === "+" || r.kind === "-") {
+  let n = -1, inRun = false;
+  return rows.map((r) => {
+    if (!changed(r)) { inRun = false; return r; }
+    if (!inRun) { n++; inRun = true; return { ...r, blk: n, first: true }; }
+    return { ...r, blk: n };
+  });
+}
+
 // Unified diff text -> rows: "@" headers, "+", "-" and " " lines with their numbers.
 export function parseDiff(text) {
   const out = [];

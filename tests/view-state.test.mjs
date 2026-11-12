@@ -21,7 +21,7 @@ test("every call hands out its own sets and objects", () => {
 
 test("a commit switch resets what the previous commit left, and only that", () => {
   const reset = commitSwitchState();
-  assert.deepEqual(Object.keys(reset).sort(), ["diffs", "files", "fp", "loading", "message", "msgOpen", "open", "sel"]);
+  assert.deepEqual(Object.keys(reset).sort(), ["block", "blockMenu", "diffs", "files", "fp", "hoverBlock", "loading", "message", "msgOpen", "open", "sel"]);
   assert.equal(reset.loading, true);
   assert.notEqual(commitSwitchState().open, reset.open);
   for (const key of Object.keys(reset)) assert.ok(key in initialState(), `${key} is a field of the state`);

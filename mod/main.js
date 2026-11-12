@@ -3,7 +3,7 @@
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar, ScrollHandle } from "gpui-base";
-import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, setShared, openOverlay, closeOverlay, notify, props, hc, run } from "herdr";
+import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, setShared, openOverlay, closeOverlay, notify, props, hc } from "herdr";
 import { selectedRows, reference } from "./ask.js";
 import { CHAR_W, GUTTER_W, FILE_H } from "./metrics.js";
 import { makeGit, noticeRows } from "./git.js";
@@ -15,8 +15,9 @@ import { draggedShare } from "./split-drag.js";
 import { messageBox, commitMenu } from "./ui-commit-menu.js";
 import { initialState, commitSwitchState } from "./view-state.js";
 import { shortRev } from "./commit-message.js";
+import { numberBlocks } from "./parse.js";
 import { header as drawHeader } from "./ui-header.js";
-import { codeRow as drawCodeRow, splitRow as drawSplitRow, hatching } from "./ui-diff-row.js";
+import { codeRow as drawCodeRow, splitRow as drawSplitRow, hatching, blockAction } from "./ui-diff-row.js";
 import { dirRow as drawDirRow, fileRow as drawFileRow } from "./ui-file-row.js";
 import { settingsView } from "./settings-view.js";
 import { discardView } from "./discard-view.js";
@@ -24,10 +25,12 @@ import { hscroll } from "./hscroll.js";
 import { makeHighlighter, attachColors } from "./highlight.js";
 import { treeRows } from "./tree.js";
 import { makeNvim, FIND_NVIM } from "./nvim.js";
+import { makeLazygit, FIND_LAZYGIT } from "./lazygit.js";
 
 const { load, diffFor, discard } = makeGit({ exec, readTextFile });
 const { highlight } = makeHighlighter({ exec, settings });
 const { hasNvim } = makeNvim({ exec });
+const { hasLazygit } = makeLazygit({ exec });
 
 const POLL_MS = 5000;
 // The tree column's share of the body when the tree is on, kept between these by the divider.
@@ -92,9 +95,10 @@ export default class GitDiff extends View {
         this.root = next.root; this.base = next.base;
         this.loc = next.root ? { cwd: next.root, on: loc.on } : null;
         this.nvim = this.loc ? await hasNvim(this.loc) : false;
+        this.lazygit = this.loc ? await hasLazygit(this.loc) : false;
         const fp = JSON.stringify([rev, ...next.files.map((f) => [f.path, f.add, f.del, f.status])]);
         if (fp !== this.fp) {
-          this.fp = fp; this.files = next.files; this.diffs = {}; this.sel = null; // the rows it pointed at are gone
+          this.fp = fp; this.files = next.files; this.diffs = {}; this.sel = null; this.block = null; // the rows it pointed at are gone
           for (const p of [...this.open]) if (!next.files.some((f) => f.path === p)) this.open.delete(p);
           for (const p of this.open) this.loadDiff(p, cx);
         }
@@ -130,7 +134,7 @@ export default class GitDiff extends View {
         markWords(rows);
         attachColors(rows, await highlight(loc, f, base, rev).catch(() => null));
       } catch (e) { rows = noticeRows(`Cannot load diff: ${e?.message ?? e}`); }
-      if (fp === this.fp) this.diffs[path] = rows;
+      if (fp === this.fp) this.diffs[path] = numberBlocks(rows);
       cx.notify();
     });
   }
@@ -166,6 +170,12 @@ export default class GitDiff extends View {
       if (k === "l") { this.open.add(p); this.loadDiff(p, cx); }
       else if (k === "h") this.open.delete(p);
       else this.toggleFile(p, cx);
+    } else if (k === "e" && this.block) {
+      // A selected block (by a click): nvim on its first line, as the menu's "Abrir en nvim".
+      const { path, n } = this.block;
+      const first = (this.diffs[path] ?? []).find((r) => r.first && r.blk === n);
+      if (!first || !this.nvimOpenable(path)) return;
+      this.openNvim(path, cx, this.blockLine(first));
     } else return;
     cx.stop_propagation();
     cx.notify();
@@ -189,18 +199,29 @@ export default class GitDiff extends View {
     openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 0.94, height: 0.9, props: { full: true } });
   }
 
-  // nvim on the file, in a big dialog over the panel; it closes itself when nvim exits,
-  // and the Changes view is right there. The terminal is started apart from any pane.
-  async openNvim(path, cx) {
+  // A tool in a big dialog over the panel (nvim, lazygit): it closes itself when the tool exits, and the
+  // Changes view is right there. The terminal is started apart from any pane.
+  // No pane.focus here: the app only focuses a terminal of a visible layout block, so for the dialog's
+  // terminal it reports "no such pane" (a notice, not a throw). A click in the dialog focuses it.
+  async openTool(script, args, label, cx) {
     const loc = this.loc;
     if (!loc) return;
     try {
-      const r = await hc(["run", "--json", "--bg", "--no-parent", "--rm", "--cwd", loc.cwd, ...(loc.on ? ["--on", loc.on] : []), "--", "sh", "-c", FIND_NVIM, "sh", path]);
+      const r = await hc(["run", "--json", "--bg", "--no-parent", "--rm", "--cwd", loc.cwd, ...(loc.on ? ["--on", loc.on] : []), "--", "sh", "-c", script, "sh", ...args]);
       if (r.code !== 0) throw new Error(r.stderr.trim() || "hc run failed");
       const address = JSON.parse(r.stdout).address;
       openOverlay({ kind: "dialog", width: 0.94, height: 0.9, layout: { type: "column", children: [{ type: "block", content: { terminal: address } }] } });
-      try { run("pane.focus", { terminal: address }); } catch { /* the click focuses it */ }
-    } catch (e) { this.flashMessage(`Could not open nvim: ${e?.message ?? e}`, cx); }
+    } catch (e) { this.flashMessage(`Could not open ${label}: ${e?.message ?? e}`, cx); }
+  }
+
+  // nvim on a file, at a line (a block's, from its menu or the e key).
+  openNvim(path, cx, line = null) {
+    return this.openTool(FIND_NVIM, [...(line ? [`+${line}`] : []), path], "nvim", cx);
+  }
+
+  // lazygit in the repo.
+  openLazygit(cx) {
+    return this.openTool(FIND_LAZYGIT, [], "lazygit", cx);
   }
 
   // The reference of the selected lines, "<full path>#L1-L3", copied for pasting in the chat.
@@ -267,7 +288,11 @@ export default class GitDiff extends View {
 
   // The three below are called by hscroll.js for each row of an open file.
   splitRow(row, group, t, offset) {
-    return drawSplitRow(row, group.file.path, t, offset, this.rowView());
+    const path = group.file.path, blk = row.left?.blk ?? row.right?.blk;
+    const firstSide = row.left?.first ? row.left : row.right?.first ? row.right : null; // the block's first row, if this pair starts one
+    const hooks = { ...this.blockHooks(path, blk, !!firstSide, firstSide ? this.blockLine(firstSide) : null, t) };
+    if (blk !== undefined) hooks.onHover = (hovered) => this.hoverBlockAt(path, blk, hovered);
+    return drawSplitRow(row, path, t, offset, this.rowView(), hooks);
   }
 
   hatch(t, height) {
@@ -289,7 +314,61 @@ export default class GitDiff extends View {
           this.hover = key;
           if (this.dragging) this.sel = extendTo(this.sel, path, i); // dragging over rows extends the selection
         } else if (this.hover === key) this.hover = null;
-      } });
+        this.hoverBlockAt(path, row.blk, hovered);
+      },
+      ...this.blockHooks(path, row.blk, !!row.first, row.first ? this.blockLine(row) : null, t) });
+  }
+
+  // A row of a block: a click on it selects the block, and the block's first row carries its "..." button
+  // while the block is hovered or selected. line: where "Abrir en nvim" opens the file (the block's first line).
+  blockHooks(path, blk, first, line, t) {
+    if (blk === undefined) return {};
+    return {
+      onClick: (cx) => { this.selectBlock({ path, n: blk }); cx.notify(); },
+      action: first && this.showAction(path, blk) ? this.blockButton(path, blk, line, t) : null,
+    };
+  }
+
+  // The "..." button of a block, and its menu: "Abrir en nvim" opens the file at the block's first line.
+  blockButton(path, blk, line, t) {
+    const menuOpen = this.blockMenu?.path === path && this.blockMenu?.n === blk;
+    return blockAction({
+      id: `blk-${path}#${blk}`, px: (n) => this.px(n), open: menuOpen,
+      onOpenChange: (open, cx) => { this.blockMenu = open ? { path, n: blk } : null; cx.notify(); },
+      items: [{ id: `blk-nvim-${path}#${blk}`, label: "Abrir en nvim",
+        onClick: (cx) => { this.blockMenu = null; cx.notify(); this.openNvim(path, cx, line); } }],
+    }, t);
+  }
+
+  // Blocks: a click selects one; the pointer over one shows its "..." button. Nothing is tinted.
+  selectBlock(block) {
+    this.block = block; this.cursor = block.path;
+  }
+
+  hoverBlockAt(path, blk, hovered) {
+    if (blk === undefined) return;
+    if (hovered) this.hoverBlock = { path, n: blk };
+    else if (this.hoverBlock?.path === path && this.hoverBlock.n === blk) this.hoverBlock = null;
+  }
+
+  isHovered(path, blk) { return this.hoverBlock?.path === path && this.hoverBlock.n === blk; }
+
+  isSelected(path, blk) { return this.block?.path === path && this.block.n === blk; }
+
+  // The "..." button shows on a block that is under the pointer, selected, or whose menu is open, and only
+  // when there is an action to show: nvim, on a file that is in the list (not a commit, not deleted).
+  showAction(path, blk) {
+    const menuOpen = this.blockMenu?.path === path && this.blockMenu?.n === blk;
+    return this.nvimOpenable(path) && (this.isHovered(path, blk) || this.isSelected(path, blk) || menuOpen);
+  }
+
+  nvimOpenable(path) {
+    return !this.rev && this.nvim && this.files.find((f) => f.path === path)?.status !== "D";
+  }
+
+  // The line a block starts on in the new file (a removed row has its old-file number).
+  blockLine(row) {
+    return row.kind === "-" ? row.o : row.n;
   }
 
   // One entry per file: its row, then — when open — the rows of its diff, in a box of
@@ -342,7 +421,8 @@ export default class GitDiff extends View {
       flash: this.flash, totals, view: { wrap: this.wrap, side: this.side, tree: this.tree }, isFull: !!props()?.full,
       onToggleMenu: (cx) => { this.menu = !this.menu; this.sub = false; cx.notify(); },
       onOpenSettings: () => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 510, props: { settings: true } }),
-      onSetView: (patch, cx) => this.setView(patch, cx), onOpenFull: () => this.openFull() });
+      onSetView: (patch, cx) => this.setView(patch, cx), onOpenFull: () => this.openFull(),
+      lazygit: this.lazygit, onOpenLazygit: (cx) => this.openLazygit(cx) });
   }
 
   // The shown commit's message under the header.
