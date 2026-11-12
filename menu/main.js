@@ -1,11 +1,11 @@
 // The Changes menu (<leader>g in the tmux-style prefix). It looks and works as Herdr's own menu does
 // (rows, the highlight, arrows, Enter, Esc, the hint on the right), with a filter field on top, and it
-// opens at the top of the window like the picker. Fullscreen opens the panel full screen; Split view,
+// opens at the top of the window like the picker. Fullscreen opens the panel full screen, Open pane in the side panel; Split view,
 // Tree and Wrap switch the views the panel shows (the shared "gitdiff.view", as in mod/config.js); Settings opens
 // the panel's settings window.
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { theme, props, closeOverlay, openOverlay, shared, setShared, run } from "herdr";
+import { theme, props, closeOverlay, openOverlay, shared, setShared, run, layout } from "herdr";
 
 const VIEW_KEY = "gitdiff.view";
 function parseView(value) {
@@ -13,6 +13,16 @@ function parseView(value) {
   if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch { raw = {}; } }
   if (!raw || typeof raw !== "object") raw = {};
   return { side: raw.side === true, tree: raw.tree === true, wrap: raw.wrap === true };
+}
+
+// Finds the stack child that holds the panel (a block of mod "wfordiffs") and the stack it sits in.
+function panelSlot(node, stack = null) {
+  for (const child of node?.children ?? []) {
+    if (child.type === "block" && child.content?.mod === "wfordiffs" && node.type === "stack") return { stack: node.id, child: child.id };
+    const found = panelSlot(child, stack);
+    if (found) return found;
+  }
+  return null;
 }
 
 export default class ChangesMenu extends View {
@@ -32,6 +42,15 @@ export default class ChangesMenu extends View {
   items() {
     const v = parseView(shared(VIEW_KEY));
     const all = [
+      // Open pane shows the panel in the window's side panel (what its top-right button does), without
+      // toggling it closed: it selects the panel's view in the stack and shows the side panel. Needs a layout
+      // that has the panel in a stack; otherwise the row does nothing.
+      { label: "Open pane", run: () => {
+        const slot = panelSlot(layout());
+        if (!slot) return;
+        run("layout.select", slot);
+        run("layout.show", { id: "panel" });
+      } },
       // Fullscreen shuts the menu and opens the panel full screen (its own dialog of wfordiffs).
       { label: "Fullscreen", run: () => { openOverlay({ mod: "wfordiffs", kind: "dialog", width: 0.94, height: 0.9, props: { full: true } }); } },
       // Both Lazygit rows ask the panel (its commands `lazygit-fullscreen` and `lazygit-pane`): the menu is shut

@@ -1,5 +1,5 @@
 {
   "place": "none",
   "title": "wfordiffs-menu",
-  "overlay": { "kind": "popup", "at": "top", "offset": 40, "width": 240, "height": 275 }
+  "overlay": { "kind": "popup", "at": "top", "offset": 40, "width": 240, "height": 303 }
 }

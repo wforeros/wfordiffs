@@ -24,13 +24,13 @@ A panel that lists the files changed in the shown repo, each opening inline into
 - **full** (or the `fullscreen` command) opens the same panel in a large dialog over the window. Esc or a click outside closes it.
 - The gear opens a small window to pick the added and removed colors from a palette, set how strong the tints are, and set the font size from 9 to 24 px (default 12). **Reset** restores the defaults.
 - The mod has three commands for keys: `refresh`, `expand-all` (opens up to 50 changed files) and `collapse-all`. They reach the panel only while it is shown.
-- A second mod, the Changes menu, opens with a key from the tmux-style prefix (`<leader>g`) as a popup at the top of the window. It has a filter field and rows: Fullscreen, Lazygit (which opens lazygit in the repo in a big dialog), and Split view, Tree and Wrap (with *on* or *off* on the right; the rows stay open after a toggle). Esc or a click outside closes it.
+- A second mod, the Changes menu, opens with a key from the tmux-style prefix (`<leader>g`) as a popup at the top of the window. It has a filter field and rows: Open pane (shows the panel in the side panel), Fullscreen, Lazygit (which opens lazygit in the repo in a big dialog), and Split view, Tree and Wrap (with *on* or *off* on the right; the rows stay open after a toggle). Esc or a click outside closes it.
 
 The mod has no agent states: it shows the repo's changes only.
 
 ## Built from
 
-- **Two mods:** `wfordiffs` (the panel: `mod/main.js`, `mod/mod.json` with `"focusable": true`, `mod/ui/` for drawing, and `mod/icons/`) and `wfordiffs-menu` (`menu/main.js`, `menu/mod.json` with a popup overlay, top, 240 by 260 px, 40 px down).
+- **Two mods:** `wfordiffs` (the panel: `mod/main.js`, `mod/mod.json` with `"focusable": true`, `mod/ui/` for drawing, and `mod/icons/`) and `wfordiffs-menu` (`menu/main.js`, `menu/mod.json` with a popup overlay, top, 240 by 303 px, 40 px down).
 - **Herdr functions:** `exec`, `spaces`, `focused`, `readTextFile`, `nextCommand`, `theme`, `settings`, `shared`, `setShared`, `openOverlay`, `closeOverlay`, `notify`, `props` and `hc`, from the `herdr` module. The panel uses the `gpui-kit` and `gpui-base` builders for its drawing.
 - **Programs run through `exec`:** `git` on the repo's machine, `sh` (to start `bat` and to find `nvim` and `lazygit`), and, when present, `bat` for highlighting, `nvim` and `lazygit`.
 - **Art:** the icons in `mod/icons/` are drawn after Lucide (ISC) and taken from herdr-git-graph (MIT). Keep `LICENSE-lucide.txt` beside them. The nvim mark is Simple Icons (CC0).
