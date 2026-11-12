@@ -5,8 +5,8 @@
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { setShared, closeOverlay, props } from "herdr";
-import { addedColor, removedColor } from "./diff-colors.js";
-import { CFG_KEY, tint } from "./config.js";
+import { addedColor, removedColor } from "../diff-colors.js";
+import { CFG_KEY, tint } from "../config.js";
 import { settingsRows } from "./settings-model.js";
 
 // Styles. Each takes the theme and returns a function of an element, so the builders below read as structure.

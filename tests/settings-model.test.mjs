@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { settingsRows, moveCursor } from "../mod/settings-model.js";
+import { settingsRows, moveCursor } from "../mod/settings/settings-model.js";
 import { parseConfig, DEFAULTS } from "../mod/config.js";
 
 const rows = settingsRows(parseConfig(null));

@@ -1,6 +1,6 @@
 // pure: what the settings window offers, as rows of cells, and how a cursor moves over them. The window draws
 // the rows; a click or a key on a cell applies its `patch` to the config. No Herdr imports, so the tests cover it.
-import { DEFAULTS, FONT_MIN, FONT_MAX, stepAmount } from "./config.js";
+import { DEFAULTS, FONT_MIN, FONT_MAX, stepAmount } from "../config.js";
 
 export const GREENS = ["#a6e3a1", "#7ee787", "#56d364", "#2ea043", "#40c057", "#00d084"];
 export const AMBERS = ["#f9e2af", "#e3b341", "#d29922", "#fab387", "#ffa657", "#bf8700"];

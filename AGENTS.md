@@ -11,9 +11,9 @@ how the pieces fit: `docs/ARCHITECTURE.md`. User docs: `README.md`.
   `content.mod` in a layout, the `herdr-gitdiff.<command>` bindings in `keys.json`,
   and the assets, which are addressed from the app home: an icon is
   `svg("mods/herdr-gitdiff/icons/x.svg")`.
-- `mod/` is flat, except `mod/ui/` and `mod/utils/` (`install.sh` copies `mod/*.js`, `mod/ui/*.js` and `mod/utils/*.js`, nothing else): the layer is
+- `mod/` is flat, except `mod/ui/`, `mod/utils/` and `mod/settings/` (`install.sh` copies `mod/*.js` and the `*.js` of those three, nothing else): the layer is
   in the name. `mod/ui/ui-*.js` draw from values and callbacks the view passes in (never `this`); everything else
-  is pure or takes `exec` & co. `mod/utils/` is for what does not know this mod (it takes Herdr's functions as arguments, imports only from `utils/`), so it can become an SDK. Only `ui/` and `utils/` are folders: don't add others.
+  is pure or takes `exec` & co. `mod/utils/` is for what does not know this mod (it takes Herdr's functions as arguments, imports only from `utils/`), so it can become an SDK. `mod/settings/` holds the settings window (`settings-view.js`, `settings-model.js`; `config.js` stays at the top, the panel reads it too). Only `ui/`, `utils/` and `settings/` are folders: don't add others.
 - `parse.js`, `ansi.js`, `lexer.js` stay pure (no `herdr` imports). `git.js` and
   `highlight.js` take `exec` & co. as arguments. Keep it that way so `npm test` covers them.
 - Tests: `npm test` (node:test, one file per module).

@@ -13,8 +13,8 @@ mod/ansi.js       pure: bat's ANSI output -> colored pieces
 mod/lexer.js      pure: the fallback lexer used when bat is missing
 mod/inline.js    pure: word-level marks inside a changed line (markWords, splitMarks)
 mod/config.js    pure: tint colors and strengths (kept in shared("gitdiff.cfg"))
-mod/settings-view.js  the gear window: draws settings-model.js's rows, with a ring on the cell the keys are on (same mod, props().settings)
-mod/settings-model.js  pure: the gear window's rows of cells (each with the config patch it applies), and moveCursor for h j k l / arrows
+mod/settings/settings-view.js  the gear window: draws settings-model.js's rows, with a ring on the cell the keys are on (same mod, props().settings)
+mod/settings/settings-model.js  pure: the gear window's rows of cells (each with the config patch it applies), and moveCursor for h j k l / arrows
 mod/nvim.js       makeNvim({ exec }) -> hasNvim (is nvim on the repo's machine, cached per machine; the list's icon shows only then); FIND_NVIM (the launch, same spots)
 mod/lazygit.js    makeLazygit({ exec }) -> hasLazygit (the same for lazygit: the header's Lazygit button shows only then); FIND_LAZYGIT (the launch)
 mod/confirm-view.js  a confirm dialog (title, detail, Cancel / action); the discard (discard-view.js, props().discard) and the settings' reset (props().reset) are both drawn with it; main.js does the work
