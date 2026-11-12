@@ -14,7 +14,7 @@ A Changes panel for [Herdr](https://herdr.dev): the files changed in the repo yo
 - Exact changed words get a stronger tint inside each line.
 - Toggle between the unified view and split view (*Before* / *After*).
 - Toggle a tree view of the changed files, with folders that fold and unfold.
-- The settings window works from the keyboard: `h` `j` `k` `l` or the arrows move over the options, `Enter` (or space) presses one, `Esc` closes. Enter on the chosen color lets it go.
+- The settings window works from the keyboard: `h` `j` `k` `l` or the arrows move over the options, `Enter` (or space) presses one, `Esc` closes. Enter on the chosen color lets it go. Reset asks for confirmation first (Enter confirms, Esc cancels).
 - Header buttons to expand or collapse every diff (also the `expand-all` and `collapse-all` commands; expanding opens up to 50 files).
 - While you scroll the list, a chip at the top names the file at the top of the list, when that file's diff is taller than the list (wheel only).
 - Toggle line wrap for long lines.

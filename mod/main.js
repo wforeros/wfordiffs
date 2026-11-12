@@ -27,6 +27,7 @@ import { dirRow as drawDirRow, fileRow as drawFileRow } from "./ui/ui-file-row.j
 import { settingsView } from "./settings-view.js";
 import { settingsRows, moveCursor } from "./settings-model.js";
 import { discardView } from "./discard-view.js";
+import { confirmView } from "./confirm-view.js";
 import { hscroll } from "./hscroll.js";
 import { makeHighlighter, attachColors } from "./highlight.js";
 import { treeRows } from "./tree.js";
@@ -67,6 +68,11 @@ export default class GitDiff extends View {
       return;
     }
     if (props()?.discard) return; // the confirm dialog of a discard
+    if (props()?.reset) { // the confirm dialog of the settings' reset: it takes Enter and Esc
+      this.handle = cx.focus_handle();
+      this.handle.focus();
+      return;
+    }
     // Keys (see onKey()): the panel takes the keyboard on a click.
     this.handle = cx.focus_handle();
     this.listScroll = ScrollHandle.new();
@@ -567,7 +573,11 @@ export default class GitDiff extends View {
   render(cx) {
     const t = theme();
     this.syncShared();
-    if (props()?.settings) return settingsView(t, this.cfg, { cursor: this.settingsAt, handle: this.handle, onKey: (e, cx) => this.onSettingsKey(e, cx) });
+    if (props()?.settings) return settingsView(t, this.cfg, { cursor: this.settingsAt, handle: this.handle, onKey: (e, cx) => this.onSettingsKey(e, cx), onReset: () => this.askReset() });
+    if (props()?.reset) return confirmView(t, { id: "herdr-gitdiff-reset", title: "Reset settings?", action: "Reset",
+      detail: "The colors, tints, font size and where Lazygit and Neovim open go back to their defaults. This can't be undone.",
+      handle: this.handle, onKey: (e, cx) => this.onResetKey(e, cx),
+      onConfirm: () => this.confirmReset(), onCancel: () => closeOverlay(props().overlay) });
     if (props()?.discard) return discardView(t, { target: props().discard.file, busy: this.busy, error: this.err,
       onConfirm: (_e, cx) => this.confirmDiscard(cx), onCancel: () => closeOverlay(props().overlay) });
     this.countsW = this.countsWidth();
@@ -589,6 +599,24 @@ export default class GitDiff extends View {
       .when(this.menu, (e) => e.child(this.commitPicker(t)));
   }
 
+  // Asks first: the confirm dialog does the reset (its own copy of this mod, over the settings window).
+  askReset() {
+    openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 380, height: 190, props: { reset: true } });
+  }
+
+  confirmReset() {
+    setShared(CFG_KEY, { ...DEFAULTS });
+    closeOverlay(props().overlay);
+  }
+
+  // Enter confirms and Esc cancels, in the reset dialog.
+  onResetKey(e, cx) {
+    if (e.keystroke === "enter") this.confirmReset();
+    else if (e.keystroke === "escape") closeOverlay(props().overlay);
+    else return;
+    cx.stop_propagation();
+  }
+
   // Keys in the settings window: h j k l or the arrows move over the cells, Enter (or space) presses the one under the
   // cursor, Esc closes. Other keys pass on.
   onSettingsKey(e, cx) {
@@ -597,7 +625,8 @@ export default class GitDiff extends View {
     if (moved) this.settingsAt = moved;
     else if (k === "enter" || k === "space") {
       const cell = rows[this.settingsAt.row]?.cells[this.settingsAt.col];
-      if (cell) setShared(CFG_KEY, { ...this.cfg, ...cell.patch });
+      if (cell?.kind === "reset") this.askReset();
+      else if (cell) setShared(CFG_KEY, { ...this.cfg, ...cell.patch });
     } else if (k === "escape") closeOverlay(props()?.overlay);
     else return;
     cx.stop_propagation();

@@ -24,6 +24,7 @@ const rowTitle = (t) => (el) => label(t)(el).w(70);
  * @property {{ row: number, col: number }} cursor the cell the keys are on
  * @property {object} handle the window's focus handle: the keys reach it
  * @property {(event: object, cx: object) => void} onKey
+ * @property {() => void} onReset Reset was pressed: ask before it happens
  */
 
 /**
@@ -38,7 +39,8 @@ export function settingsView(t, cfg, nav) {
   const shown = { line: `${Math.round(cfg.line * 100)}%`, word: `${Math.round(cfg.word * 100)}%`, font: `${cfg.font}px` };
 
   const cellView = (cell, row) => {
-    const click = (_e, cx) => apply(cell.patch, cx);
+    // Reset asks first (a dialog); every other cell applies its patch.
+    const click = (_e, cx) => (cell.kind === "reset" ? nav.onReset() : apply(cell.patch, cx));
     if (cell.kind === "swatch") {
       const fill = cell.color ?? themeOf[row.key];
       return div().id(cell.id).w(22).h(22).rounded(5).cursor_pointer().bg(fill)

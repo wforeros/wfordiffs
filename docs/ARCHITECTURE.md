@@ -17,7 +17,7 @@ mod/settings-view.js  the gear window: draws settings-model.js's rows, with a ri
 mod/settings-model.js  pure: the gear window's rows of cells (each with the config patch it applies), and moveCursor for h j k l / arrows
 mod/nvim.js       makeNvim({ exec }) -> hasNvim (is nvim on the repo's machine, cached per machine; the list's icon shows only then); FIND_NVIM (the launch, same spots)
 mod/lazygit.js    makeLazygit({ exec }) -> hasLazygit (the same for lazygit: the header's Lazygit button shows only then); FIND_LAZYGIT (the launch)
-mod/discard-view.js   the confirm dialog of a discard (same mod, props().discard); main.js does the work
+mod/confirm-view.js  a confirm dialog (title, detail, Cancel / action); the discard (discard-view.js, props().discard) and the settings' reset (props().reset) are both drawn with it; main.js does the work
 mod/ask.js       pure: selected rows -> "<path>#L1-L3" reference
 mod/tree.js      pure: changed files -> folder and file rows for the tree view
 mod/metrics.js    pure: gutter widths, the per-character width estimate, and the design constants (row heights, indent, hatching)
