@@ -117,9 +117,11 @@ keyboard on that `focus` command, as on a click.
 
 `<leader>g` (your tmux-style prefix, bound in your own `tmux-prefix` copy) opens the Changes menu, a
 popup at the top of the window like the picker's. It is its own mod (`menu/`) and looks like Herdr's
-menu: a filter field on top, then the rows. **Fullscreen** opens the panel full screen; **Split view**,
-**Tree** and **Wrap** switch their view, with *on* or *off* on the right, and the menu stays open. Type to
-filter, the arrows move, enter runs (a click works too). Esc, or a click outside, shuts it.
+menu: a filter field on top, then the rows. **Fullscreen** opens the panel full screen; **Lazygit** opens
+lazygit in the repo in a big dialog, as the header's button does (without lazygit on the repo's machine the
+dialog says so instead); **Split view**, **Tree** and **Wrap** switch their view, with *on* or *off* on the
+right, and the menu stays open. Type to filter, the arrows move, enter runs (a click works too). Esc, or a
+click outside, shuts it.
 
 ## Long lines
 
