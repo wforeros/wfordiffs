@@ -37,6 +37,7 @@ export function initialState() {
     busy: false,
     nvim: false,              // nvim is installed where the repo is: the list shows its icon (nvim.js)
     lazygit: false,           // lazygit is installed there too: the header shows its button (lazygit.js)
+    lazygitOnLoad: false,     // the Changes menu's Lazygit: open lazygit once the repo has loaded, then clear
 
     // The commit shown (null: the uncommitted changes) and its picker
     rev: null,

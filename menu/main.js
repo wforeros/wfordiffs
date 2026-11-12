@@ -33,6 +33,9 @@ export default class ChangesMenu extends View {
     const all = [
       // Fullscreen shuts the menu and opens the panel full screen (its own dialog of herdr-gitdiff).
       { label: "Fullscreen", run: () => { openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 0.94, height: 0.9, props: { full: true } }); } },
+      // Lazygit shuts the menu and opens the panel's own copy in a dialog, which runs lazygit on the shown repo
+      // (the header's button does the same). Without lazygit there, that copy says so.
+      { label: "Lazygit", run: () => { openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 0.94, height: 0.9, props: { lazygit: true } }); } },
       { label: "Split view", hint: v.side ? "on" : "off", run: (cx) => this.setView({ side: !v.side }, cx) },
       { label: "Tree", hint: v.tree ? "on" : "off", run: (cx) => this.setView({ tree: !v.tree }, cx) },
       { label: "Wrap", hint: v.wrap ? "on" : "off", run: (cx) => this.setView({ wrap: !v.wrap }, cx) },
