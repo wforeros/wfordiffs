@@ -29,6 +29,7 @@ mod/ui/ui-counts.js     the +N / −N counts and "binary"
 mod/ui/ui-header.js     the header: title, picker button, toggles, totals
 mod/ui/ui-commit-menu.js  the commit's message block and the picker (Uncommitted, Branches, Commits; the commits list has the search field)
 mod/ui/ui-file-row.js   folder rows, file rows and the tree's guide lines
+mod/ui/ui-error-bar.js  an error at the bottom of the panel, with Copy and dismiss buttons (a tool that could not open)
 mod/ui/ui-diff-row.js   a diff's rows: code row, split row, hunk header, change bar, hatching
 mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
 mod/commit-search.js  pure: the picker's search (filterCommits: a hash's start or part of a subject)

@@ -18,6 +18,7 @@ import { shortRev } from "./commit-message.js";
 import { filterCommits } from "./commit-search.js";
 import { numberBlocks } from "./parse.js";
 import { header as drawHeader } from "./ui/ui-header.js";
+import { errorBar } from "./ui/ui-error-bar.js";
 import { codeRow as drawCodeRow, splitRow as drawSplitRow, hatching, blockAction } from "./ui/ui-diff-row.js";
 import { dirRow as drawDirRow, fileRow as drawFileRow } from "./ui/ui-file-row.js";
 import { settingsView } from "./settings-view.js";
@@ -222,6 +223,17 @@ export default class GitDiff extends View {
     cx.notify();
   }
 
+  // An error at the bottom of the panel: it stays until dismissed, and it can be copied.
+  showError(text, cx) {
+    this.toolError = text; this.errorCopied = false; cx.notify();
+  }
+
+  copyError(cx) {
+    cx.write_to_clipboard(this.toolError);
+    this.errorCopied = true; cx.notify();
+    cx.timer.after(1500, (cx) => { this.errorCopied = false; cx.notify(); });
+  }
+
   // A short message in the header, gone after a few seconds.
   flashMessage(text, cx) {
     this.flash = text; cx.notify();
@@ -252,7 +264,7 @@ export default class GitDiff extends View {
       if (r.code !== 0) throw new Error(r.stderr.trim() || "hc run failed");
       const address = JSON.parse(r.stdout).address;
       openOverlay({ kind: "dialog", width: 0.94, height: 0.9, layout: { type: "column", children: [{ type: "block", content: { terminal: address } }] } });
-    } catch (e) { this.flashMessage(`Could not open ${label}: ${e?.message ?? e}`, cx); }
+    } catch (e) { this.showError(`Could not open ${label}: ${e?.message ?? e}`, cx); }
   }
 
   // nvim on a file, at a line (a block's, from its menu or the e key).
@@ -513,6 +525,9 @@ export default class GitDiff extends View {
       .child(this.header(t))
       .when(!!this.rev && !!this.message, (e) => e.child(this.commitMessage(t)))
       .child(this.files.length === 0 ? this.emptyNotice(t) : this.columns(t))
+      // At the bottom, under whatever the body shows.
+      .when(!!this.toolError, (e) => e.child(errorBar(t, { text: this.toolError, copied: this.errorCopied, cfg: this.cfg, px: (n) => this.px(n),
+        onCopy: (_e, cx) => this.copyError(cx), onDismiss: (_e, cx) => { this.toolError = null; cx.notify(); } })))
       // Last, so it paints over the body.
       .when(this.menu, (e) => e.child(this.commitPicker(t)));
   }
