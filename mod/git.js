@@ -6,6 +6,7 @@ import { EMPTY_TREE, parseNumstat, parseNameStatus, parseDiff } from "./parse.js
 const GIT = ["--no-optional-locks", "-c", "core.fsmonitor=false", "-c", "diff.autoRefreshIndex=false", "-c", "core.quotepath=off"];
 const LIMIT = 1000;
 const COMMITS = 4; // how many recent commits the picker lists
+const HISTORY = 500; // how many commits the picker's search looks through (shortcut: the newest 500 only)
 
 // One row for the panel to show where a diff would go: a notice such as "Binary file".
 export const noticeRows = (text) => [{ kind: "@", text }];
@@ -40,6 +41,12 @@ export function makeGit({ exec, readTextFile }) {
     return new Set(idx.map((i) => paths[i]));
   }
 
+  // The last n commits of the branch, newest first: { sha, short, subject }. None in a repo without commits.
+  async function recentCommits(g, n) {
+    const log = await exec("git", [...GIT, "log", "-n", String(n), "--format=%H%x1f%h%x1f%s"], g);
+    return log.code !== 0 ? [] : log.stdout.split("\n").filter(Boolean).map((l) => { const [sha, short, subject] = l.split("\x1f"); return { sha, short, subject }; });
+  }
+
   // rev: a commit to show instead of the worktree; its changes are the diff against its first parent.
   async function load(loc, rev = null) {
     const top = await exec("git", [...GIT, "rev-parse", "--show-toplevel"], { cwd: loc.cwd, on: loc.on });
@@ -47,8 +54,7 @@ export function makeGit({ exec, readTextFile }) {
     const g = { cwd: top.stdout.trim(), on: loc.on };
     const run = (args) => exec("git", [...GIT, ...args], g);
     // The last commits of the branch, for the picker (none in a repo without commits).
-    const log = await run(["log", "-n", String(COMMITS), "--format=%H%x1f%h%x1f%s"]);
-    const commits = log.code !== 0 ? [] : log.stdout.split("\n").filter(Boolean).map((l) => { const [sha, short, subject] = l.split("\x1f"); return { sha, short, subject }; });
+    const commits = await recentCommits(g, COMMITS);
     if (rev) {
       const parent = await run(["rev-parse", "--verify", "-q", `${rev}^`]);
       const from = parent.code === 0 ? `${rev}^` : EMPTY_TREE;
@@ -111,5 +117,10 @@ export function makeGit({ exec, readTextFile }) {
     const r = await exec("git", [...GIT, "--literal-pathspecs", ...args], { cwd: loc.cwd, on: loc.on });
     if (r.code !== 0) throw new Error(r.stderr.trim() || "git failed");
   }
-  return { load, diffFor, discard };
+  // The branch's recent commits, for the picker's search (loc: the repo's folder, as load's).
+  async function history(loc) {
+    return recentCommits({ cwd: loc.cwd, on: loc.on }, HISTORY);
+  }
+
+  return { load, diffFor, discard, history };
 }

@@ -2,7 +2,7 @@
 // (line numbers, +/- tints, syntax colors). It discards unstaged changes (after a confirm); no commits, no branches.
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
 import { View, div } from "gpui-kit";
-import { v_flex, h_flex, Scrollbar, ScrollHandle } from "gpui-base";
+import { v_flex, h_flex, Scrollbar, ScrollHandle, InputState } from "gpui-base";
 import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, setShared, openOverlay, closeOverlay, notify, props, hc } from "herdr";
 import { selectedRows, reference } from "./ask.js";
 import { CHAR_W, GUTTER_W, FILE_H } from "./metrics.js";
@@ -15,6 +15,7 @@ import { draggedShare } from "./split-drag.js";
 import { messageBox, commitMenu } from "./ui/ui-commit-menu.js";
 import { initialState, commitSwitchState } from "./view-state.js";
 import { shortRev } from "./commit-message.js";
+import { filterCommits } from "./commit-search.js";
 import { numberBlocks } from "./parse.js";
 import { header as drawHeader } from "./ui/ui-header.js";
 import { codeRow as drawCodeRow, splitRow as drawSplitRow, hatching, blockAction } from "./ui/ui-diff-row.js";
@@ -27,7 +28,7 @@ import { treeRows } from "./tree.js";
 import { makeNvim, FIND_NVIM } from "./nvim.js";
 import { makeLazygit, FIND_LAZYGIT } from "./lazygit.js";
 
-const { load, diffFor, discard } = makeGit({ exec, readTextFile });
+const { load, diffFor, discard, history } = makeGit({ exec, readTextFile });
 const { highlight } = makeHighlighter({ exec, settings });
 const { hasNvim } = makeNvim({ exec });
 const { hasLazygit } = makeLazygit({ exec });
@@ -56,6 +57,10 @@ export default class GitDiff extends View {
     // Keys (see onKey()): the panel takes the keyboard on a click.
     this.handle = cx.focus_handle();
     this.listScroll = ScrollHandle.new();
+    // The picker's search field: it filters the branch's commits; enter shows the first match.
+    this.searchInput = InputState.new({ placeholder: "Search commits…" });
+    this.searchInput.on("change", (_e, cx) => { this.query = this.searchInput.value(); cx.notify(); });
+    this.searchInput.on("submit", (_e, cx) => { const first = this.shownCommits()[0]; if (first) this.selectCommit(first.sha, cx); });
     // The full-screen copy takes the keyboard as it opens, so the vim keys work at once.
     if (props()?.full) this.handle.focus();
     // The Changes menu's Lazygit opens this copy with props.lazygit: lazygit opens after the first load.
@@ -132,6 +137,22 @@ export default class GitDiff extends View {
     cx.notify();
   }
 
+  // The picker opens with its search field empty and focused; the branch's commits are read for the search.
+  openPicker(cx) {
+    this.menu = true; this.sub = false; this.query = "";
+    this.searchInput.set_value("");
+    this.searchInput.focus();
+    if (this.loc) {
+      cx.spawn(async (cx) => { this.branchCommits = await history(this.loc); cx.notify(); });
+    }
+    cx.notify();
+  }
+
+  // The commits the picker's list shows: the recent ones, or with a query, the branch's matches.
+  shownCommits() {
+    return this.query.trim() ? filterCommits(this.branchCommits, this.query) : this.commits;
+  }
+
   // Loads one file's diff once per refresh; a result from an older refresh is dropped.
   loadDiff(path, cx) {
     const f = this.files.find((x) => x.path === path);
@@ -169,6 +190,7 @@ export default class GitDiff extends View {
   // enter opens or closes it. Other keys pass on.
   // shortcut: the tenth counts file rows at 28px each, so a list of open diffs moves less than a tenth of the screen.
   onKey(e, cx) {
+    if (this.menu) return; // the picker is open: its search field takes the keys
     const k = e.keystroke;
     const i = this.files.findIndex((f) => f.path === this.cursor);
     const tenth = Math.max(1, Math.floor((this.heights["herdr-gitdiff-list"] ?? 0) / this.px(FILE_H) / 10));
@@ -431,7 +453,7 @@ export default class GitDiff extends View {
       px: (n) => this.px(n), cfg: this.cfg, hasRev: !!this.rev, menuOpen: this.menu, fileCount: this.files.length,
       revLabel: `${this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
       flash: this.flash, totals, view: { wrap: this.wrap, side: this.side, tree: this.tree }, isFull: !!props()?.full,
-      onToggleMenu: (cx) => { this.menu = !this.menu; this.sub = false; cx.notify(); },
+      onToggleMenu: (cx) => { if (this.menu) { this.menu = false; this.sub = false; cx.notify(); } else this.openPicker(cx); },
       onOpenSettings: () => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 510, props: { settings: true } }),
       onSetView: (patch, cx) => this.setView(patch, cx), onOpenFull: () => this.openFull(),
       lazygit: this.lazygit, onOpenLazygit: (cx) => this.openLazygit(cx) });
@@ -447,8 +469,9 @@ export default class GitDiff extends View {
   // The picker that opens from the header's button.
   commitPicker(t) {
     return commitMenu(t, {
-      rev: this.rev, commits: this.commits, listOpen: this.sub, px: (n) => this.px(n),
-      onListOpen: (open, cx) => { this.sub = open; cx.notify(); }, onPick: (sha, cx) => this.selectCommit(sha, cx) });
+      rev: this.rev, commits: this.shownCommits(), query: this.query, listOpen: this.sub, px: (n) => this.px(n),
+      onListOpen: (open, cx) => { this.sub = open; cx.notify(); }, onPick: (sha, cx) => this.selectCommit(sha, cx),
+      searchInput: this.searchInput });
   }
 
   // What the body says while there are no files: the error, "Loading changes…", "No changes", "No folder".

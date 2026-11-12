@@ -46,6 +46,8 @@ export function initialState() {
     msgOpen: false,           // the shown commit's message, folded or not
     menu: false,              // the picker beside the title is open
     sub: false,               // and its list of commits
+    query: "",                // the picker's search field's text: "" lists the recent commits
+    branchCommits: [],        // the branch's commits, read when the picker opens, for the search
 
     // How it looks
     cfg: { ...DEFAULTS },     // tint colors and strengths, from shared(); set in the gear window
