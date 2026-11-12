@@ -57,6 +57,8 @@ for m in "${MODS[@]}"; do
   rm -rf "$STAGE" && mkdir -p "$STAGE/$name"
   # Only the mod itself: the app writes its own jsconfig.json and *.d.ts next to it.
   for f in "$src"/*.js "$src"/mod.json; do cp "$f" "$STAGE/$name/"; done
+  # The layer folder (mod/ui/): only its *.js, the same rule as the top level.
+  if [ -d "$src/ui" ]; then mkdir -p "$STAGE/$name/ui" && cp "$src"/ui/*.js "$STAGE/$name/ui/"; fi
   # Icons (drawn after Lucide, ISC): svgs, the custom ones, and their licence, never without it.
   [ -d "$src/icons" ] && cp -R "$src/icons" "$STAGE/$name/icons"
 

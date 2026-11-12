@@ -24,19 +24,19 @@ mod/diff-colors.js  pure: the user's color, else the theme's, for added, removed
 mod/line-selection.js  pure: the selection of diff lines (isPicked, pressRow, extendTo)
 mod/split-drag.js  pure: the divider's drag -> the tree's share of the body
 mod/commit-message.js  pure: a message's subject and body, and a commit's short name
-mod/ui-buttons.js    textButton and iconButton, for the header and the rows
-mod/ui-counts.js     the +N / −N counts and "binary"
-mod/ui-header.js     the header: title, picker button, toggles, totals
-mod/ui-commit-menu.js  the commit's message block and the picker menu
-mod/ui-file-row.js   folder rows, file rows and the tree's guide lines
-mod/ui-diff-row.js   a diff's rows: code row, split row, hunk header, change bar, hatching
+mod/ui/ui-buttons.js    textButton and iconButton, for the header and the rows
+mod/ui/ui-counts.js     the +N / −N counts and "binary"
+mod/ui/ui-header.js     the header: title, picker button, toggles, totals
+mod/ui/ui-commit-menu.js  the commit's message block and the picker menu
+mod/ui/ui-file-row.js   folder rows, file rows and the tree's guide lines
+mod/ui/ui-diff-row.js   a diff's rows: code row, split row, hunk header, change bar, hatching
 mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
 mod/sides.js      pure: a diff's rows -> pairs (old line left, new line right) for the split view
 menu/main.js      the Changes menu (<leader>g), its own mod (herdr-gitdiff-menu): Herdr's menu look, a filter field, the shared views
 tests/            node:test, one file per module (npm test)
 ```
 
-Only `main.js`, `hscroll.js` and the `ui-*.js` files import from `herdr`/`gpui-*` (the `ui-*` files only
+Only `main.js`, `hscroll.js` and the `ui/ui-*.js` files import from `herdr`/`gpui-*` (the `ui-*` files only
 from `gpui-*`: they draw from values and callbacks the view hands in and never read its state). `git.js` and `highlight.js`
 get `exec` (and `readTextFile`, `settings`) as arguments, so the tests hand them node's
 `child_process` or a fake. The `parse`, `ansi` and `lexer` modules import nothing.
@@ -129,7 +129,7 @@ and whether it starts one (`first`). The split view's pairs take the same number
   only shows its button.
 - Hovering a row sets the block under the pointer (`hoverBlockAt`). The first row of a hovered or
   selected block shows a `...` button at its top right (`blockButton`, drawn by `blockAction` in
-  `ui-diff-row.js` as a `Popover` from gpui-base). It shows only where nvim can open the file
+  `mod/ui/ui-diff-row.js` as a `Popover` from gpui-base). It shows only where nvim can open the file
   (`showAction`, `nvimOpenable`).
 - Its menu's "Abrir en nvim" opens the file at the block's first line (`openNvim` with `+N` before
   the path). The key `e` does the same with a selected block.

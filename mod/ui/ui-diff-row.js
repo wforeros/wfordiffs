@@ -3,12 +3,12 @@
 // hands in what the panel looks like (DiffView) and what to do on a press or a hover.
 import { div, PathBuilder, Background } from "gpui-kit";
 import { h_flex, v_flex, Popover } from "gpui-base";
-import { tint, shade } from "./config.js";
-import { lineColor } from "./diff-colors.js";
-import { langOf, tokens } from "./lexer.js";
-import { splitMarks } from "./inline.js";
-import { breakRuns, wrapChars } from "./wrap.js";
-import { ADD_W, NUM_W, PAD_L, LINE_H, HUNK_H, HATCH_SHADE } from "./metrics.js";
+import { tint, shade } from "../config.js";
+import { lineColor } from "../diff-colors.js";
+import { langOf, tokens } from "../lexer.js";
+import { splitMarks } from "../inline.js";
+import { breakRuns, wrapChars } from "../wrap.js";
+import { ADD_W, NUM_W, PAD_L, LINE_H, HUNK_H, HATCH_SHADE } from "../metrics.js";
 
 const BAR_W = 3;       // the bar at a changed line's left edge
 const NUM_PAD = 4;      // right padding of a line number

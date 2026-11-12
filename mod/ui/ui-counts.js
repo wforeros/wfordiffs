@@ -1,7 +1,7 @@
 // The "+N" and "−N" counts of a file row and of the header, and the "binary" that stands for them
 // when a file has no lines to count. One size and the user's colors (diff-colors.js) in one place.
 import { div } from "gpui-kit";
-import { addedColor, removedColor } from "./diff-colors.js";
+import { addedColor, removedColor } from "../diff-colors.js";
 
 const COUNT_SIZE = 11; // px at the panel's 12px base
 

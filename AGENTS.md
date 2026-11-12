@@ -11,8 +11,9 @@ how the pieces fit: `docs/ARCHITECTURE.md`. User docs: `README.md`.
   `content.mod` in a layout, the `herdr-gitdiff.<command>` bindings in `keys.json`,
   and the assets, which are addressed from the app home: an icon is
   `svg("mods/herdr-gitdiff/icons/x.svg")`.
-- `mod/` is flat (`install.sh` copies only `*.js`): the layer is in the name. `ui-*.js` draws from
-  values and callbacks the view passes in (never `this`); everything else is pure or takes `exec` & co.
+- `mod/` is flat, except `mod/ui/` (`install.sh` copies `mod/*.js` and `mod/ui/*.js`, nothing else): the layer is
+  in the name. `mod/ui/ui-*.js` draw from values and callbacks the view passes in (never `this`); everything else
+  is pure or takes `exec` & co. Only `ui/` is a folder: don't add others.
 - `parse.js`, `ansi.js`, `lexer.js` stay pure (no `herdr` imports). `git.js` and
   `highlight.js` take `exec` & co. as arguments. Keep it that way so `npm test` covers them.
 - Tests: `npm test` (node:test, one file per module).

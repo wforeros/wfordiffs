@@ -3,7 +3,7 @@
 // hands in what to show (plain values) and what to do (callbacks that take the gpui `cx`).
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { splitMessage } from "./commit-message.js";
+import { splitMessage } from "../commit-message.js";
 
 // Styles. Each one takes an element and returns it styled, and is named for what it is, so the
 // builders below read as structure. `px` scales a size at 12px to the panel's font.

@@ -2,9 +2,9 @@
 // (fileRow). They only draw: the view hands in the values to show and what a click should do.
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { tint } from "./config.js";
-import { statusColor } from "./diff-colors.js";
-import { FILE_H, FILE_NAME, INDENT, SLOT } from "./metrics.js";
+import { tint } from "../config.js";
+import { statusColor } from "../diff-colors.js";
+import { FILE_H, FILE_NAME, INDENT, SLOT } from "../metrics.js";
 import { iconButton } from "./ui-buttons.js";
 import { addedCount, removedCount, binaryLabel } from "./ui-counts.js";
 

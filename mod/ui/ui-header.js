@@ -2,7 +2,7 @@
 // the totals. It only draws: the view hands in the values and what each button does.
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { addedColor } from "./diff-colors.js";
+import { addedColor } from "../diff-colors.js";
 import { textButton, iconButton } from "./ui-buttons.js";
 import { addedCount, removedCount } from "./ui-counts.js";
 
