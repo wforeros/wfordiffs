@@ -42,6 +42,14 @@ The mod has no agent states: it shows the repo's changes only.
 The script never touches `keys.json` or any layout. Showing the panel and binding keys is the user's choice, and the user asks for it:
 
 - **Layout:** to put the panel in a layout, the user adds a pane with `content.mod` set to `wfordiffs`.
+- **As a button in the top-right corner:** Herdr's own layout already has it. Its tab bar draws a **Files** and a **Changes** button at the top right. They open and close a side panel on the right of the window, hidden at first, 368 px wide and resizable by dragging its edge. A button shows its view when it is not showing, and hides the panel when it already is. The panel remembers its choice per space. The **Changes** button shows Herdr's own `changes` mod, so to see this panel there instead:
+  1. Shipped layouts are read-only, so clone the one in use. `herdr-app do layout.clone '{"name":"main","as":"my-layout"}'` makes `layouts/my-layout.json` and switches to it. If the user already has a clone, use that one.
+  2. In that file, find the block with `"id": "changes"` inside the `stack` `panel-body` (in the column `panel`), and change its `content.mod` from `changes` to `wfordiffs`:
+     ```json
+     { "id": "changes", "type": "block", "content": { "mod": "wfordiffs" } }
+     ```
+  3. Save. The window follows within a second. The **Changes** button now opens this panel at the top right, and the panel is the same one the commands and the menu reach.
+  Nothing else changes: the stack keeps **Files** (and **Graph**, where the layout has it). The panel needs no `"focusable"` entry in the layout, because `mod/mod.json` already sets it. A custom tab bar mod, such as a clone of `tabs`, keeps its own buttons and needs no change as long as its Changes button selects the `changes` child of `panel-body`.
 - **Keys:** to bind a command, the user adds `wfordiffs.<command>` (`refresh`, `expand-all`, `collapse-all`, `fullscreen`, `lazygit-fullscreen`, `lazygit-pane`) in `keys.json`. The menu opens from its `<leader>g` binding, which is also theirs to set.
 
 ## Watch out
