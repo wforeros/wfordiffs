@@ -59,10 +59,14 @@ they reach the mod only while it's shown.
 | `refresh` | Reloads the file list now. |
 | `expand-all` | Opens every changed file (at most 50). |
 | `collapse-all` | Closes them all. |
+| `fullscreen` | Opens the panel full screen, in a big dialog over the window. Esc or a click outside closes it. The **full** button in the header does the same. |
 
 ```json
 { "global": { "alt-r": "herdr-gitdiff.refresh", "alt-e": "herdr-gitdiff.expand-all", "alt-shift-e": "herdr-gitdiff.collapse-all" } }
 ```
+
+`fullscreen` needs the panel shown in the layout, like the other commands. In a
+`keys.json` it is an action like the others: `"alt-shift-f": "herdr-gitdiff.fullscreen"`.
 
 Showing or hiding the panel is not a mod command (a hidden mod can't receive
 one). It's a layout command, `layout.toggle {"id": "panel"}`, bound in the
@@ -121,7 +125,7 @@ Each row of the list (except deleted files) has a small nvim icon next to its co
 installed on the repo's machine (otherwise the row keeps the space empty). The tree
 has neither: its rows only show where the changes are. It runs
 `nvim <path>` in the repo's folder (on the same machine as the repo) in a big dialog over
-the panel; when you quit nvim the dialog closes itself and you are back in Changes. Needs
+the panel (a click outside it closes the dialog); when you quit nvim the dialog closes itself and you are back in Changes. Needs
 `nvim` on the PATH of the terminals Herdr starts there. The icon is Neovim's mark from
 Simple Icons (CC0; the mark is its owners' trademark).
 

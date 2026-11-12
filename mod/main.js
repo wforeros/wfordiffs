@@ -77,6 +77,8 @@ export default class GitDiff extends View {
       for (;;) {
         const c = await nextCommand();
         if (c === "refresh") this.refresh(cx);
+        // The dialog's own copy ignores it: it is already full screen.
+        else if (c === "fullscreen") { if (!props()?.full) this.openFull(); }
         else if (c === "collapse-all") this.open.clear();
         else if (c === "expand-all") {
           for (const f of this.files.slice(0, EXPAND_MAX)) this.open.add(f.path);
@@ -163,6 +165,12 @@ export default class GitDiff extends View {
     cx.timer.after(2500, (cx) => { if (this.flash === text) { this.flash = ""; cx.notify(); } });
   }
 
+  // Full screen: the panel opens again in a big dialog over the window, as its own copy of this mod
+  // (props.full). It is an action, not a toggle: Esc shuts the dialog.
+  openFull() {
+    openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 0.94, height: 0.9, props: { full: true } });
+  }
+
   // nvim on the file, in a big dialog over the panel; it closes itself when nvim exits,
   // and the Changes view is right there. The terminal is started apart from any pane.
   async openNvim(path, cx) {
@@ -172,7 +180,7 @@ export default class GitDiff extends View {
       const r = await hc(["run", "--json", "--bg", "--no-parent", "--rm", "--cwd", loc.cwd, ...(loc.on ? ["--on", loc.on] : []), "--", "sh", "-c", FIND_NVIM, "sh", path]);
       if (r.code !== 0) throw new Error(r.stderr.trim() || "hc run failed");
       const address = JSON.parse(r.stdout).address;
-      openOverlay({ kind: "dialog", modal: true, width: 0.94, height: 0.9, layout: { type: "column", children: [{ type: "block", content: { terminal: address } }] } });
+      openOverlay({ kind: "dialog", width: 0.94, height: 0.9, layout: { type: "column", children: [{ type: "block", content: { terminal: address } }] } });
       try { run("pane.focus", { terminal: address }); } catch { /* the click focuses it */ }
     } catch (e) { this.say(`Could not open nvim: ${e?.message ?? e}`, cx); }
   }
@@ -463,6 +471,10 @@ export default class GitDiff extends View {
           .tooltip("Show the changed folders as a tree, on the right")
           .when(this.tree, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.tree, (e) => e.text_color(t.muted))
           .on_click((_e, cx) => { this.tree = !this.tree; cx.notify(); }).child("tree"))
+        // Not in the full screen copy itself: it is full screen already.
+        .child(props()?.full ? div() : div().id("herdr-gitdiff-full").px(6).py(1).rounded(4).text_size(10).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover))
+          .tooltip("Open full screen (shortcut: herdr-gitdiff.fullscreen)")
+          .on_click(() => this.openFull()).child("full"))
         .child(div().text_size(this.px(11)).text_color(this.cfg.added ?? t.ansi2).child(`+${add}`))
         .child(div().text_size(this.px(11)).text_color(this.cfg.removed ?? t.ansi1).child(`−${del}`)))
       .when(!!this.rev && !!this.message, (e) => e.child(this.messageBox(t)))

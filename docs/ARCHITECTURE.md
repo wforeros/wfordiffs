@@ -84,3 +84,12 @@ The dropdown beside the title sets `this.rev` (`null`: the uncommitted changes).
 `highlight` read that commit's files from git, not the worktree. The list and the tree show the result the
 same way. The nvim and discard buttons are hidden then. Hovering "Committed" opens the last 4 commits of
 the branch (`COMMITS` in `git.js`).
+
+## Full screen
+
+`fullscreen` (the command, the header's **full** button) opens the mod again as a dialog over the window,
+with `props: { full: true }` (`openFull`). It is an action, not a toggle: Esc or a click outside shuts the dialog (no `modal`, so the click outside closes it, as the nvim dialog's does). That dialog
+is a copy of its own: it loads its own files and keeps its own picks, so it starts as the list does. Its
+copy hides the **full** button and ignores the command. `<mod>.<command>` reaches shown copies only, so the
+command does nothing while the panel is hidden from the layout (the button and any caller that opens the
+dialog directly still work).
