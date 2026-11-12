@@ -30,3 +30,13 @@ export const tint = (color, alpha) => color + Math.round(alpha * 255).toString(1
 
 // One 5% step up or down, kept in 0..1 and free of float noise.
 export const stepAmount = (v, dir) => Math.min(1, Math.max(0, Math.round((v + dir * 0.05) * 100) / 100));
+
+// The views the panel shows (split, tree, wrap): one shared choice, set from the header or the menu,
+// so the panel and its full-screen copy agree. Pure: no Herdr imports.
+export const VIEW_KEY = "gitdiff.view";
+export function parseView(value) {
+  let raw = value;
+  if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch { raw = {}; } }
+  if (!raw || typeof raw !== "object") raw = {};
+  return { side: raw.side === true, tree: raw.tree === true, wrap: raw.wrap === true };
+}

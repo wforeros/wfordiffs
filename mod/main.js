@@ -12,7 +12,7 @@ import { makeGit, msg } from "./git.js";
 import { markWords, splitMarks } from "./inline.js";
 import { breakRuns, wrapChars } from "./wrap.js";
 import { pairSides } from "./sides.js";
-import { parseConfig, tint, DEFAULTS, CFG_KEY } from "./config.js";
+import { parseConfig, tint, DEFAULTS, CFG_KEY, VIEW_KEY, parseView } from "./config.js";
 import { settingsView } from "./settings-view.js";
 import { discardView } from "./discard-view.js";
 import { hscroll } from "./hscroll.js";
@@ -194,6 +194,12 @@ export default class GitDiff extends View {
   say(text, cx) {
     this.flash = text; cx.notify();
     cx.timer.after(2500, (cx) => { if (this.flash === text) { this.flash = ""; cx.notify(); } });
+  }
+
+  // The shared views (split, tree, wrap): set from the header or the menu, and read back in render.
+  setView(patch, cx) {
+    setShared(VIEW_KEY, { ...parseView(shared(VIEW_KEY)), ...patch });
+    cx.notify();
   }
 
   // Full screen: the panel opens again in a big dialog over the window, as its own copy of this mod
@@ -461,6 +467,7 @@ export default class GitDiff extends View {
     const t = theme();
     this.cfg = parseConfig(shared(CFG_KEY));
     this.k = this.cfg.font / DEFAULTS.font; // every size below was designed at 12px
+    Object.assign(this, parseView(shared(VIEW_KEY))); // side, tree, wrap: the shared choice (setView)
     if (props()?.settings) return settingsView(t, this.cfg);
     if (props()?.discard) return discardView(t, { target: props().discard.file, busy: this.busy, error: this.err,
       onConfirm: (_e, cx) => this.confirmDiscard(cx), onCancel: () => closeOverlay(props().overlay) });
@@ -496,15 +503,15 @@ export default class GitDiff extends View {
           .child(svg("mods/herdr-gitdiff/icons/settings.svg").size(14).text_color(t.muted)))
         .child(div().id("herdr-gitdiff-wrap").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .when(this.wrap, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.wrap, (e) => e.text_color(t.muted))
-          .on_click((_e, cx) => { this.wrap = !this.wrap; cx.notify(); }).child("wrap"))
+          .on_click((_e, cx) => this.setView({ wrap: !this.wrap }, cx)).child("wrap"))
         .child(div().id("herdr-gitdiff-side").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .tooltip("Before on the left, after on the right")
           .when(this.side, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.side, (e) => e.text_color(t.muted))
-          .on_click((_e, cx) => { this.side = !this.side; cx.notify(); }).child("split"))
+          .on_click((_e, cx) => this.setView({ side: !this.side }, cx)).child("split"))
         .child(div().id("herdr-gitdiff-tree").px(6).py(1).rounded(4).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .tooltip("Show the changed folders as a tree, on the right")
           .when(this.tree, (e) => e.bg(t.selected).text_color(t.foreground)).when(!this.tree, (e) => e.text_color(t.muted))
-          .on_click((_e, cx) => { this.tree = !this.tree; cx.notify(); }).child("tree"))
+          .on_click((_e, cx) => this.setView({ tree: !this.tree }, cx)).child("tree"))
         // Not in the full screen copy itself: it is full screen already.
         .child(props()?.full ? div() : div().id("herdr-gitdiff-full").px(6).py(1).rounded(4).text_size(10).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover))
           .tooltip("Open full screen (shortcut: herdr-gitdiff.fullscreen)")

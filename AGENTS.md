@@ -3,7 +3,8 @@
 A Herdr mod: a Changes panel (changed files, each opening into its diff). Layout and
 how the pieces fit: `docs/ARCHITECTURE.md`. User docs: `README.md`.
 
-- `mod/` is what gets installed (`./install.sh`); keep it to `*.js`, `mod.json` and
+- `mod/` (the Changes panel) and `menu/` (its `<leader>g` menu) are what gets installed
+  (`./install.sh`); keep each to `*.js`, `mod.json` and
   `icons/` (`*.svg` plus `LICENSE-lucide.txt`, which ships with them).
 - One name everywhere: the repo, the installed mod (`mods/herdr-gitdiff`, `DEST`
   in `install.sh`), the `"title"` in `mod.json` (the install's guard reads it), the

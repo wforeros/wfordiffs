@@ -20,6 +20,7 @@ mod/tree.js      pure: changed files -> folder and file rows for the tree view
 mod/metrics.js    gutter widths and the per-character width estimate
 mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
 mod/sides.js      pure: a diff's rows -> pairs (old line left, new line right) for the split view
+menu/main.js      the Changes menu (<leader>g), its own mod (herdr-gitdiff-menu): Herdr's menu look, a filter field, the shared views
 tests/            node:test, one file per module (npm test)
 ```
 
@@ -104,5 +105,16 @@ an index, and `scroll_to_item` runs once per key (`reveal`), not on every render
 
 The panel is `"focusable": true` in `mod.json`, so `pane.go` reaches it. Herdr then sends the `focus`
 command (`nextCommand`), and the panel calls `handle.focus()`, the same as a click does.
+
+## The shared views and the menu
+
+Split, tree and wrap are one shared choice (`VIEW_KEY`, `parseView` in `config.js`), not each copy's own.
+`render` reads it into the instance (`Object.assign`), and `setView` writes it, so the header buttons, the
+menu and the full-screen copy agree. Herdr keeps `shared` state, so the choice survives a restart.
+
+The menu is `menu/` (`herdr-gitdiff-menu`), opened with `mod.open` from the tmux-style prefix, so its
+`mod.json` sets the place: a popup at the top, 40px down. Its rows are Herdr's menu's (31px, the highlight,
+the hint on the right); its filter is an `InputState`, as in the picker. The toggles write the shared key
+and stay open; Fullscreen opens the full-screen dialog of `herdr-gitdiff`.
 
 ctrl-d and ctrl-u move the cursor a tenth of the list's visible height (`heights`, set by the list's `on_size_change`), so the list follows it as it does for j and k.
