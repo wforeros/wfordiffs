@@ -481,7 +481,7 @@ export default class GitDiff extends View {
         this.dragging = false; this.copySelection(cx); cx.notify();
       }).min_h(0).bg(t.background).text_color(t.foreground).text_size(this.cfg.font).font_family(settings().font_family ?? "JetBrains Mono")
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
-        .child(div().font_semibold().child("Changes"))
+        .child(div().font_semibold().child("Herdr Diffview"))
         .child(div().id("herdr-gitdiff-rev").px(6).py(1).rounded(4).border_1().border_color(t.border).text_size(10).cursor_pointer().hover((s) => s.bg(t.hover))
           .when(this.menu, (e) => e.bg(t.selected)).text_color(this.rev ? t.foreground : t.muted)
           .tooltip("Uncommitted changes, or what a recent commit changed")
