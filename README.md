@@ -55,7 +55,9 @@ Asked to add this mod from GitHub (`https://github.com/wforeros/herdr-gitdiff`),
 own AGENTS.md describes copying `mods/<name>/` folders; this repo keeps `mod/` and `menu/` at its root, so
 install with `install.sh`, not by copying folders.
 
-1. Clone the repo into an empty folder.
+1. Clone the repo into an empty folder. Read `RECIPE.md` and then every file before you change anything: it is
+   the brief of the mod, and the app's AGENTS.md asks for that. `RECIPE.md` and `preview.png` are not
+   installed (`install.sh` copies only `.js` files, `mod.json` and `icons/`).
 2. Find the app home. On Linux and macOS it is `~/.config/herdr-app`, the script's default. On Windows it is
    `C:\Users\<you>\.config\herdr-app`; from WSL the same folder is `/mnt/c/Users/<you>/.config/herdr-app`.
    A WSL home's `~/.config` is not the app's.
@@ -66,11 +68,17 @@ install with `install.sh`, not by copying folders.
    Without bash (native Windows, no WSL or Git Bash), copy by hand: `mod/` to `<app home>\mods\herdr-gitdiff`
    (with `mod/ui/`, and only the `.js` files, `mod.json` and `icons/`), and `menu/` to
    `<app home>\mods\herdr-gitdiff-menu` (same rule). Then run `herdr-app check` on each folder, if it is on PATH.
-4. Before the person uses it, tell them what the mods do: they run programs through `exec` (`git`, a shell
-   that looks for `nvim` and `lazygit`, and `bat`, `nvim` and `lazygit` when present) and read the files of
-   the repo they show.
-5. Leave `keys.json` and the layouts alone. Add the block above to a layout only if the person asks.
-   To remove the mods, run `./install.sh --uninstall`.
+4. Before the person uses it, tell them what the mods do. They make no network calls. They run programs through
+   `exec`: `git` on the repo's machine, a `sh` that starts `bat` and looks for `nvim` and `lazygit`, and `bat`,
+   `nvim` and `lazygit` when present. They read the files of the repo they show, which is outside their folder.
+5. Check each installed mod with `herdr-app check <app home>/mods/<name>`, and run it again after any change.
+   The mod is not done until that check passes.
+6. The repo has no `keys.json`: there is nothing to merge. The commands in the README are optional bindings.
+   Leave the layouts alone; add the block above to a layout only if the person asks.
+7. To remove the mods, run `./install.sh --uninstall`.
+
+Note: Herdr's docs list a mod's modules as `*.js` in its folder; this repo puts the drawing modules in `mod/ui/`.
+If `herdr-app check` fails on an import from `./ui/`, that subfolder is the cause: it is not checked in Herdr yet.
 
 ## Shortcuts
 
