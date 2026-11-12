@@ -7,7 +7,8 @@ const GIT = ["--no-optional-locks", "-c", "core.fsmonitor=false", "-c", "diff.au
 const LIMIT = 1000;
 const COMMITS = 4; // how many recent commits the picker lists
 
-export const msg = (text) => [{ kind: "@", text }];
+// One row for the panel to show where a diff would go: a notice such as "Binary file".
+export const noticeRows = (text) => [{ kind: "@", text }];
 
 export function makeGit({ exec, readTextFile }) {
   // rev: a commit to show instead of the worktree; its changes are the diff against its first parent.
@@ -53,16 +54,16 @@ export function makeGit({ exec, readTextFile }) {
   }
 
   async function diffFor(loc, f, base, rev = null) {
-    if (f.binary) return msg("Binary file");
+    if (f.binary) return noticeRows("Binary file");
     if (f.untracked) {
       const text = await readTextFile(`${loc.cwd}/${f.path}`, { on: loc.on });
-      if (text === null) return msg("Cannot read this file");
+      if (text === null) return noticeRows("Cannot read this file");
       const lines = text.split("\n");
       if (lines.at(-1) === "") lines.pop();
       return parseDiff(`@@ -0,0 +1,${lines.length} @@\n` + lines.map((l) => `+${l}`).join("\n"));
     }
     const r = await exec("git", [...GIT, "diff", base, ...(rev ? [rev] : []), "--no-color", "--no-ext-diff", "-U3", "--", f.path], { cwd: loc.cwd, on: loc.on });
-    if (r.code !== 0) return msg(r.stderr.trim() || "git diff failed");
+    if (r.code !== 0) return noticeRows(r.stderr.trim() || "git diff failed");
     return parseDiff(r.stdout);
   }
 

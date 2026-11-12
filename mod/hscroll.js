@@ -3,6 +3,7 @@
 // file is in (the list or the tree), which its bar is sized from.
 import { div } from "gpui-kit";
 import { v_flex } from "gpui-base";
+import { LINE_H, HUNK_H } from "./metrics.js";
 
 // The hatching's layer in wrap, in px at 12px: taller than a wrapped diff, clipped by the box.
 const WRAP_HATCH_H = 100000;
@@ -19,12 +20,12 @@ export function hscroll(view, g, t, width) {
   const wide = maxOff > 0;
   const move = (to, cx) => { view.offsets[g.id] = Math.min(Math.max(to, 0), maxOff); cx.notify(); };
   // Side by side: the hatching of the empty sides is one layer under the rows, so it runs on from one
-  // row to the next. Without wrap the layer is the diff's height (its rows' fixed heights: 20px a pair,
-  // 22px a header). With wrap the rows' heights are not known here, so the layer is taller than any
+  // row to the next. Without wrap the layer is the diff's height (its rows' fixed heights: LINE_H a
+  // pair, HUNK_H a header; they were 20 and 22 px before the rows grew, which cut the hatching short). With wrap the rows' heights are not known here, so the layer is taller than any
   // diff and this box clips it.
   // shortcut: a wrapped diff longer than WRAP_HATCH_H px loses its hatching below that.
   let height = 0;
-  for (const r of g.body) height += view.px(r.kind === "pair" ? 20 : 22);
+  for (const r of g.body) height += view.px(r.kind === "pair" ? LINE_H : HUNK_H);
   const kids = g.body.map((row, i) => g.split
     ? view.splitRow(row, g, t, wide ? off : 0)
     : view.codeRow(row, g.file.path, t, wide ? g.width : 0, i, g.id));

@@ -38,7 +38,7 @@ HERDR_APP_HOME='C:\Users\<you>\.config\herdr-app' ./install.sh   # from WSL, for
 ./install.sh --uninstall
 ```
 
-The script copies `mod/` to `<app home>/mods/herdr-gitdiff` (staged, then one swap),
+The script copies `mod/` to `<app home>/mods/herdr-gitdiff` and `menu/` to `<app home>/mods/herdr-gitdiff-menu` (each staged, then one swap),
 checks it with `herdr-app` when it finds one (`HERDR_APP_BIN` to pick it), and
 never touches `keys.json` or the layouts.
 
@@ -59,14 +59,36 @@ they reach the mod only while it's shown.
 | `refresh` | Reloads the file list now. |
 | `expand-all` | Opens every changed file (at most 50). |
 | `collapse-all` | Closes them all. |
+| `fullscreen` | Opens the panel full screen, in a big dialog over the window. Esc or a click outside closes it. The **full** button in the header does the same. |
 
 ```json
 { "global": { "alt-r": "herdr-gitdiff.refresh", "alt-e": "herdr-gitdiff.expand-all", "alt-shift-e": "herdr-gitdiff.collapse-all" } }
 ```
 
+`fullscreen` needs the panel shown in the layout, like the other commands. In a
+`keys.json` it is an action like the others: `"alt-shift-f": "herdr-gitdiff.fullscreen"`.
+
 Showing or hiding the panel is not a mod command (a hidden mod can't receive
 one). It's a layout command, `layout.toggle {"id": "panel"}`, bound in the
 person's `keys.json` (and in tmux-prefix). See the `dots` repo's `herdr/app`.
+
+## Keys in the panel
+
+Click the panel first to give it the keyboard. `j` and `k` move a highlighted cursor down and up
+over the files (the list scrolls to it), `l` opens the cursor's diff, `h` closes it, and `enter`
+opens or closes it. `ctrl-d` and `ctrl-u` move the cursor a tenth of the visible list down and up. Clicking a file moves the cursor there too.
+
+The panel is focusable (`mod.json`): `pane.go` moves the keyboard to it, so the directional keys
+(`alt-h/j/k/l`, or your tmux-style prefix) reach it the way they reach a pane. The panel takes the
+keyboard on that `focus` command, as on a click.
+
+## The menu
+
+`<leader>g` (your tmux-style prefix, bound in your own `tmux-prefix` copy) opens the Changes menu, a
+popup at the top of the window like the picker's. It is its own mod (`menu/`) and looks like Herdr's
+menu: a filter field on top, then the rows. **Fullscreen** opens the panel full screen; **Split view**,
+**Tree** and **Wrap** switch their view, with *on* or *off* on the right, and the menu stays open. Type to
+filter, the arrows move, enter runs (a click works too). Esc, or a click outside, shuts it.
 
 ## Long lines
 
@@ -76,19 +98,19 @@ along the bottom of *that* file: sideways wheel (or shift+wheel), drag its thumb
 the track to jump. Files whose lines fit get none. The bar follows the panel's size.
 
 The header's **wrap** button drops the bars and breaks long lines onto more rows instead,
-keeping their colors; the line numbers stay on the first row. The choice is per panel copy,
-not saved.
+keeping their colors; the line numbers stay on the first row. The choice is shared with the menu and
+the full-screen copy, and saved with Herdr's shared settings.
 
 The header's **split** button shows each diff side by side: the old file on the left (*Before*),
 the new one on the right (*After*). A changed line sits across from its replacement; a side with no line there is hatched with thin grey diagonals. Both sides scroll
-together, down and sideways, and **wrap** applies to both. It is off by default and, like wrap, is not saved.
+together, down and sideways, and **wrap** applies to both. A new file has no old side, so it stays in one column. It is off by default; like wrap, the choice is shared and saved.
 
 The header's **tree** button adds a column on the right of the list: the same changes, as a tree
 (each folder that holds a change and the files under it; a vertical line runs from each
 folder's chevron down to its last row). Each folder has a chevron to fold or unfold its contents; files show just their icon,
 and a click on one opens its diff. The list on the left stays as it is. Drag the line between the two to make the tree wider
 or narrower (the list gets what is left). A click on a file in the tree opens its diff in the list (the tree only names the files). It is off by default and,
-like wrap and the split, is not saved. How it is built is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+like wrap and the split, the choice is shared and saved. How it is built is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Colors of the diff
 
@@ -117,10 +139,11 @@ changes are all staged get no icon. The icon is in the list, not in the tree vie
 
 ## Open in nvim
 
-Each row of the list (except deleted files) has a small nvim icon next to its counts. The tree
+Each row of the list (except deleted files) has a small nvim icon next to its counts, when nvim is
+installed on the repo's machine (otherwise the row keeps the space empty). The tree
 has neither: its rows only show where the changes are. It runs
 `nvim <path>` in the repo's folder (on the same machine as the repo) in a big dialog over
-the panel; when you quit nvim the dialog closes itself and you are back in Changes. Needs
+the panel (a click outside it closes the dialog); when you quit nvim the dialog closes itself and you are back in Changes. Needs
 `nvim` on the PATH of the terminals Herdr starts there. The icon is Neovim's mark from
 Simple Icons (CC0; the mark is its owners' trademark).
 
