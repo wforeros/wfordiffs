@@ -3,7 +3,8 @@
 ## Files
 
 ```
-mod/main.js       the GitDiff view: state, refresh loop, key commands, render
+mod/main.js       the GitDiff view: refresh loop, key commands, and render() composing the pieces below from its state
+mod/view-state.js pure: initialState() (every field, grouped), commitSwitchState() (what a commit switch resets)
 mod/git.js        makeGit({ exec, readTextFile }) -> load (changed files, or a commit's, plus the last 4 commits), diffFor (one file's rows), discard (one file's unstaged changes)
 mod/highlight.js  makeHighlighter({ exec, settings }) -> bat colors; attachColors (pure)
 mod/hscroll.js    one open file's sideways scrolling (bar, wheel, drag); state lives on the view
@@ -17,14 +18,25 @@ mod/nvim.js       makeNvim({ exec }) -> hasNvim (is nvim on the repo's machine, 
 mod/discard-view.js   the confirm dialog of a discard (same mod, props().discard); main.js does the work
 mod/ask.js       pure: selected rows -> "<path>#L1-L3" reference
 mod/tree.js      pure: changed files -> folder and file rows for the tree view
-mod/metrics.js    gutter widths and the per-character width estimate
+mod/metrics.js    pure: gutter widths, the per-character width estimate, and the design constants (row heights, indent, hatching)
+mod/diff-colors.js  pure: the user's color, else the theme's, for added, removed, modified, a line, a status
+mod/line-selection.js  pure: the selection of diff lines (isPicked, pressRow, extendTo)
+mod/split-drag.js  pure: the divider's drag -> the tree's share of the body
+mod/commit-message.js  pure: a message's subject and body, and a commit's short name
+mod/ui-buttons.js    textButton and iconButton, for the header and the rows
+mod/ui-counts.js     the +N / −N counts and "binary"
+mod/ui-header.js     the header: title, picker button, toggles, totals
+mod/ui-commit-menu.js  the commit's message block and the picker menu
+mod/ui-file-row.js   folder rows, file rows and the tree's guide lines
+mod/ui-diff-row.js   a diff's rows: code row, split row, hunk header, change bar, hatching
 mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
 mod/sides.js      pure: a diff's rows -> pairs (old line left, new line right) for the split view
 menu/main.js      the Changes menu (<leader>g), its own mod (herdr-gitdiff-menu): Herdr's menu look, a filter field, the shared views
 tests/            node:test, one file per module (npm test)
 ```
 
-Only `main.js` and `hscroll.js` import from `herdr`/`gpui-*`. `git.js` and `highlight.js`
+Only `main.js`, `hscroll.js` and the `ui-*.js` files import from `herdr`/`gpui-*` (the `ui-*` files only
+from `gpui-*`: they draw from values and callbacks the view hands in and never read its state). `git.js` and `highlight.js`
 get `exec` (and `readTextFile`, `settings`) as arguments, so the tests hand them node's
 `child_process` or a fake. The `parse`, `ansi` and `lexer` modules import nothing.
 

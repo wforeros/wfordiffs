@@ -4,6 +4,7 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { setShared, closeOverlay, props } from "herdr";
+import { addedColor, removedColor } from "./diff-colors.js";
 import { CFG_KEY, DEFAULTS, FONT_MIN, FONT_MAX, tint, stepAmount } from "./config.js";
 
 const GREENS = ["#a6e3a1", "#7ee787", "#56d364", "#2ea043", "#40c057", "#00d084"];
@@ -51,7 +52,7 @@ export function settingsView(t, cfg) {
       .child(div().px(1).bg(tint(color, cfg.word)).child(word))
       .child(div().child(";"));
   };
-  const added = cfg.added ?? t.ansi2, removed = cfg.removed ?? t.ansi1;
+  const added = addedColor(cfg, t), removed = removedColor(cfg, t);
 
   return v_flex().size_full().p(14).gap(14).bg(t.popover ?? t.background).text_color(t.foreground).text_size(12)
     .child(h_flex().items_center()

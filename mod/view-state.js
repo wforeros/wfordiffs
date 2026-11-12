@@ -1,0 +1,76 @@
+// pure: the panel's state, one field per line and grouped by what it is for. The view takes
+// these with Object.assign in init(); what needs gpui (the focus handle, the scroll handle) is
+// created there.
+import { EMPTY_TREE } from "./parse.js";
+import { DEFAULTS } from "./config.js";
+
+/** The state a commit switch starts over from: what the previous commit's view left behind. */
+export function commitSwitchState() {
+  return {
+    message: "",
+    msgOpen: false,
+    files: [],
+    open: new Set(),
+    diffs: {},
+    sel: null,
+    fp: "",
+    loading: true,
+  };
+}
+
+/** The state of a fresh panel (all three windows: the panel, the gear window, the discard dialog). */
+export function initialState() {
+  return {
+    // The changes
+    files: [],
+    open: new Set(),          // paths of the files whose diff is open
+    diffs: {},                // path -> its diff rows
+    base: EMPTY_TREE,         // what the changes are against
+    root: null,               // the repo's top folder
+    loc: null,                // { cwd, on }: where git runs
+    fp: "",                   // fingerprint of the files, so a refresh that changed nothing is cheap
+    error: null,
+    loading: true,
+    busy: false,
+    nvim: false,              // nvim is installed where the repo is: the list shows its icon (nvim.js)
+
+    // The commit shown (null: the uncommitted changes) and its picker
+    rev: null,
+    commits: [],
+    message: "",
+    msgOpen: false,           // the shown commit's message, folded or not
+    menu: false,              // the picker beside the title is open
+    sub: false,               // and its list of commits
+
+    // How it looks
+    cfg: { ...DEFAULTS },     // tint colors and strengths, from shared(); set in the gear window
+    k: 1,                     // font scale (cfg.font / DEFAULTS.font)
+    wrap: false,              // off: one row per line and a horizontal bar; on: long lines break
+    side: false,              // on: each diff shows the old file on the left and the new one on the right (sides.js)
+    tree: false,              // on: the files show as a tree in a column on the right
+    folded: new Set(),        // the tree's folders that are collapsed, by path ("" is the root)
+
+    // Layout and dragging
+    viewport: 0,              // the list's width in px, once measured (wrap cuts its code to it)
+    widths: {},               // per scroll area (the list, the tree): its width, to size each file's bar
+    heights: {},              // per scroll area: its height, so ctrl-d and ctrl-u move half a page
+    bodyW: 0,                 // the body's width, for the divider
+    split: 0.5,               // the list's share is 1 - split when the tree is on
+    splitDrag: null,          // { x, start } while the divider is dragged
+    offsets: {},              // per file id: sideways offset in px
+    drag: null,               // { id, startX, startOff } while dragging a file's bar
+
+    // Selecting lines to reference (line-selection.js)
+    sel: null,
+    hover: null,              // the row key the pointer is over
+    dragging: false,          // the mouse is down on a selection
+    flash: "",                // a short message in the header
+
+    // Keys
+    cursor: null,             // the file the keys move on (its path), or null
+    reveal: false,            // scroll the list to the cursor at the next render
+
+    // The discard dialog
+    err: null,                // its error, when the discard failed
+  };
+}
