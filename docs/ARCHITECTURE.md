@@ -13,6 +13,7 @@ mod/lexer.js      pure: the fallback lexer used when bat is missing
 mod/inline.js    pure: word-level marks inside a changed line (markWords, splitMarks)
 mod/config.js    pure: tint colors and strengths (kept in shared("gitdiff.cfg"))
 mod/settings-view.js  the gear window: palette, steppers, preview (same mod, props().settings)
+mod/nvim.js       makeNvim({ exec }) -> hasNvim (is nvim on the repo's machine, cached per machine; the list's icon shows only then); FIND_NVIM (the launch, same spots)
 mod/discard-view.js   the confirm dialog of a discard (same mod, props().discard); main.js does the work
 mod/ask.js       pure: selected rows -> "<path>#L1-L3" reference
 mod/tree.js      pure: changed files -> folder and file rows for the tree view
@@ -52,6 +53,7 @@ one on the right (`pairSides` in `sides.js`). A change pairs its removed lines w
 the side that runs out first is left empty. Both halves are in the same row, so they scroll down together;
 the sideways offset is one per file (`hscroll`), shared by both halves, each half a clip of its own.
 `wrap` applies to both halves at once, and a pair is as tall as its taller side.
+A new file (status `A`, untracked included) has no old side, so `groups` gives it its plain one-column body.
 
 Shortcut: the split rows have no "+" to select a line for its reference (the list view keeps it).
 

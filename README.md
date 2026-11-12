@@ -81,7 +81,7 @@ not saved.
 
 The header's **split** button shows each diff side by side: the old file on the left (*Before*),
 the new one on the right (*After*). A changed line sits across from its replacement; a side with no line there is hatched with thin grey diagonals. Both sides scroll
-together, down and sideways, and **wrap** applies to both. It is off by default and, like wrap, is not saved.
+together, down and sideways, and **wrap** applies to both. A new file has no old side, so it stays in one column. It is off by default and, like wrap, is not saved.
 
 The header's **tree** button adds a column on the right of the list: the same changes, as a tree
 (each folder that holds a change and the files under it; a vertical line runs from each
@@ -117,7 +117,8 @@ changes are all staged get no icon. The icon is in the list, not in the tree vie
 
 ## Open in nvim
 
-Each row of the list (except deleted files) has a small nvim icon next to its counts. The tree
+Each row of the list (except deleted files) has a small nvim icon next to its counts, when nvim is
+installed on the repo's machine (otherwise the row keeps the space empty). The tree
 has neither: its rows only show where the changes are. It runs
 `nvim <path>` in the repo's folder (on the same machine as the repo) in a big dialog over
 the panel; when you quit nvim the dialog closes itself and you are back in Changes. Needs

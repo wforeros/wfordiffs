@@ -18,15 +18,14 @@ import { discardView } from "./discard-view.js";
 import { hscroll } from "./hscroll.js";
 import { makeHighlighter, attachColors } from "./highlight.js";
 import { treeRows } from "./tree.js";
+import { makeNvim, FIND_NVIM } from "./nvim.js";
 
 const { load, diffFor, discard } = makeGit({ exec, readTextFile });
 const { highlight } = makeHighlighter({ exec, settings });
+const { hasNvim } = makeNvim({ exec });
 
 // The status of a file -> its icon (mod/icons/custom). Untracked files count as new.
 const ICONS = { M: "modified_file", A: "new_file", D: "deleted_file" };
-
-// The core starts terminals with a minimal PATH (no linuxbrew), so nvim is looked for in the usual spots.
-const FIND_NVIM = 'for n in nvim /home/linuxbrew/.linuxbrew/bin/nvim /usr/local/bin/nvim "$HOME/.local/bin/nvim" /usr/bin/nvim /opt/nvim/bin/nvim; do command -v "$n" >/dev/null 2>&1 && exec "$n" "$@"; done; echo "nvim not found: install it, or put it on the PATH the app starts terminals with"; sleep 8';
 
 const POLL_MS = 5000;
 // A layer over the whole parent (see splitRow): the empty half of a side-by-side row is hatched.
@@ -67,6 +66,7 @@ export default class GitDiff extends View {
     this.message = ""; this.msgOpen = false; // the shown commit's message, folded or not
     this.menu = false; this.sub = false; // the picker beside the title, and its list of commits
     this.base = EMPTY_TREE; this.root = null; this.loc = null; this.fp = ""; this.error = null; this.loading = true; this.busy = false;
+    this.nvim = false; // nvim is installed where the repo is: the list shows its icon (nvim.js)
     this.err = null; // the discard dialog's error, when the discard failed
     // Selecting lines to reference: sel = { path, from, to } (row indexes of that file's diff).
     this.sel = null; this.hover = null; this.dragging = false; this.flash = ""; // a short message in the header
@@ -101,6 +101,7 @@ export default class GitDiff extends View {
         this.error = next.error;
         this.root = next.root; this.base = next.base;
         this.loc = next.root ? { cwd: next.root, on: loc.on } : null;
+        this.nvim = this.loc ? await hasNvim(this.loc) : false;
         const fp = JSON.stringify([rev, ...next.files.map((f) => [f.path, f.add, f.del, f.status])]);
         if (fp !== this.fp) {
           this.fp = fp; this.files = next.files; this.diffs = {}; this.sel = null; // the rows it pointed at are gone
@@ -261,7 +262,7 @@ export default class GitDiff extends View {
       // Fixed slots (an empty one when a file has no icon) and a counts column as wide as the
       // widest file's numbers, so the icons sit at the same x in every row.
       .when(!e.tree, (x) => x
-        .child(f.status !== "D" && !this.rev
+        .child(f.status !== "D" && !this.rev && this.nvim
           ? div().id(`${col}-nvim-${f.path}`).w(this.px(20)).h(this.px(20)).flex_none().rounded(4).flex().items_center().justify_center()
             .cursor_pointer().hover((h) => h.bg(t.hover)).tooltip("Open in nvim")
             .on_click((_e, cx) => { cx.stop_propagation(); this.openNvim(f.path, cx); })
@@ -334,7 +335,8 @@ export default class GitDiff extends View {
             .child(div().w(this.px(4)).when(!this.wrap, (e) => e.h_full()).bg(t.background)))
         .child(row ? this.codeText(row, g.file.path, t, base, 2) : div());
       return h_flex().flex_1().min_w(0).relative().overflow_hidden().items_stretch().when(bg, (e) => e.bg(bg)).when(right, (e) => e.border_l(1).border_color(t.border))
-        .child(this.bar(base))
+        // An empty side has no change to mark, so no bar: its grey block starts at the panel's edge.
+        .when(!!row, (e) => e.child(this.bar(base)))
         .child(line);
     };
     return h_flex().w_full().items_stretch()
@@ -408,8 +410,9 @@ export default class GitDiff extends View {
       if (!body) return { ...e, body: [{ kind: "@", text: "Loading…" }], width: 0, id: `gv-${i}` };
       // What the widest row needs: the gutters, then the text.
       const width = Math.max(...body.map((r) => r.text.length * CHAR_W * this.k + GUTTER_W * this.k), 0);
-      // Side by side, the body is its pairs, under a row naming the two sides.
-      if (this.side) return { ...e, body: [{ kind: "sides" }, ...pairSides(body)], width, split: true, id: `gv-${i}` };
+      // Side by side, the body is its pairs, under a row naming the two sides. A new file has no
+      // "before" to compare with, so it keeps the one column.
+      if (this.side && e.file.status !== "A") return { ...e, body: [{ kind: "sides" }, ...pairSides(body)], width, split: true, id: `gv-${i}` };
       return { ...e, body, width, id: `gv-${i}` };
     });
   }
