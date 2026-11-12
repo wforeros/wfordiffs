@@ -24,7 +24,7 @@ mod/diff-colors.js  pure: the user's color, else the theme's, for added, removed
 mod/line-selection.js  pure: the selection of diff lines (isPicked, pressRow, extendTo)
 mod/split-drag.js  pure: the divider's drag -> the tree's share of the body
 mod/commit-message.js  pure: a message's subject and body, and a commit's short name
-mod/ui/ui-buttons.js    textButton and iconButton, for the header and the rows
+mod/ui/ui-buttons.js    textButton (the picker) and iconButton (the header's toggles, full, Lazygit, gear), for the header and the rows
 mod/ui/ui-counts.js     the +N / −N counts and "binary"
 mod/ui/ui-header.js     the header: title, picker button, toggles, totals
 mod/ui/ui-commit-menu.js  the commit's message block and the picker (Uncommitted, Branches, Commits; the commits list has the search field)

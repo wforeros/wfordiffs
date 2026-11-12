@@ -1,5 +1,5 @@
-// The small clickable things in the panel's header: a text button (wrap, split, tree, full, the
-// commit picker) and an icon button (the gear). Each takes the theme and returns an element, so the
+// The small clickable things in the panel's header: a text button (the commit picker) and an icon
+// button (the gear, the toggles, full, Lazygit). Each takes the theme and returns an element, so the
 // header says what it has, not how a button is drawn.
 import { div, svg } from "gpui-kit";
 
@@ -32,12 +32,14 @@ export function textButton({ id, label, active = false, color, bordered = false,
  * @param {string} options.icon path from the app home, as the mod's icons are addressed
  * @param {string} options.tooltip
  * @param {(event: object, cx: object) => void} options.onClick
+ * @param {boolean} [options.active] a toggle that is on: selected gray, full-strength icon
  * @param {number} [options.size] button side in px
  * @param {number} [options.iconSize] icon side in px
  * @param {object} theme
  */
-export function iconButton({ id, icon, tooltip, onClick, size = 22, iconSize = 14 }, theme) {
+export function iconButton({ id, icon, tooltip, onClick, active = false, size = 22, iconSize = 14 }, theme) {
   return div().id(id).w(size).h(size).flex_none().rounded(4).flex().items_center().justify_center()
-    .cursor_pointer().hover((s) => s.bg(theme.hover)).tooltip(tooltip).on_click(onClick)
-    .child(svg(icon).size(iconSize).text_color(theme.muted));
+    .cursor_pointer().hover((s) => s.bg(theme.hover)).when(active, (e) => e.bg(theme.selected))
+    .tooltip(tooltip).on_click(onClick)
+    .child(svg(icon).size(iconSize).text_color(active ? theme.foreground : theme.muted));
 }
