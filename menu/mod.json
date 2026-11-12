@@ -1,5 +1,5 @@
 {
   "place": "none",
   "title": "herdr-gitdiff-menu",
-  "overlay": { "kind": "popup", "at": "top", "offset": 40, "width": 240, "height": 260 }
+  "overlay": { "kind": "popup", "at": "top", "offset": 40, "width": 240, "height": 275 }
 }

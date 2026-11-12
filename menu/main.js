@@ -1,7 +1,8 @@
 // The Changes menu (<leader>g in the tmux-style prefix). It looks and works as Herdr's own menu does
 // (rows, the highlight, arrows, Enter, Esc, the hint on the right), with a filter field on top, and it
 // opens at the top of the window like the picker. Fullscreen opens the panel full screen; Split view,
-// Tree and Wrap switch the views the panel shows (the shared "gitdiff.view", as in mod/config.js).
+// Tree and Wrap switch the views the panel shows (the shared "gitdiff.view", as in mod/config.js); Settings opens
+// the panel's settings window.
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { theme, props, closeOverlay, openOverlay, shared, setShared, run } from "herdr";
@@ -41,6 +42,9 @@ export default class ChangesMenu extends View {
       { label: "Split view", hint: v.side ? "on" : "off", run: (cx) => this.setView({ side: !v.side }, cx) },
       { label: "Tree", hint: v.tree ? "on" : "off", run: (cx) => this.setView({ tree: !v.tree }, cx) },
       { label: "Wrap", hint: v.wrap ? "on" : "off", run: (cx) => this.setView({ wrap: !v.wrap }, cx) },
+      // Settings opens the panel's gear window (colors, font, where the tools open). The same window, key and
+      // size as the header's gear in mod/main.js: change them together.
+      { label: "Settings", run: () => { openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 596, props: { settings: true } }); } },
     ];
     const q = this.query.trim().toLowerCase();
     return all.filter((it) => it.label.toLowerCase().includes(q));
