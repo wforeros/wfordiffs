@@ -121,7 +121,7 @@ export default class GitDiff extends View {
         const rev = asked;
         const next = await load(loc, rev, askedBranch);
         if (stale()) return; // another commit was picked meanwhile: the finally below loads it
-        this.commits = next.commits ?? []; this.message = next.message ?? "";
+        this.commits = next.commits ?? []; this.message = next.message ?? ""; this.head = next.branch ?? "";
         this.error = next.error;
         this.root = next.root; this.base = next.base;
         this.loc = next.root ? { cwd: next.root, on: loc.on } : null;
@@ -528,7 +528,7 @@ export default class GitDiff extends View {
     const totals = { add: this.files.reduce((n, f) => n + f.add, 0), del: this.files.reduce((n, f) => n + f.del, 0) };
     return drawHeader(t, {
       px: (n) => this.px(n), cfg: this.cfg, hasRev: !!this.rev, menuOpen: this.menu, fileCount: this.files.length,
-      revLabel: `${this.branch ? `vs ${this.branch}` : this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
+      head: this.head, revLabel: `${this.branch ? `vs ${this.branch}` : this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
       flash: this.flash, totals, view: { wrap: this.wrap, side: this.side, tree: this.tree }, isFull: !!props()?.full,
       onExpandAll: (cx) => this.expandAll(cx), onCollapseAll: (cx) => this.collapseAll(cx),
       onToggleMenu: (cx) => { if (this.menu) { this.menu = false; this.sub = null; cx.notify(); } else this.openPicker(cx); },

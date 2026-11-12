@@ -42,6 +42,7 @@ export function initialState() {
     rev: null,
     branch: null,             // a branch is compared with HEAD (rev is then "HEAD"); null: not comparing
     branches: [],             // the branches to pick from, read when the picker opens
+    head: "",                 // the branch HEAD is on (read-only, beside the picker), or "detached <hash>"
     commits: [],
     message: "",
     msgOpen: false,           // the shown commit's message, folded or not

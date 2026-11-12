@@ -1,6 +1,6 @@
 // The panel's header: the title, the commit picker's button, how many files, the view toggles and
 // the totals. It only draws: the view hands in the values and what each button does.
-import { div } from "gpui-kit";
+import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { addedColor } from "../diff-colors.js";
 import { textButton, iconButton } from "./ui-buttons.js";
@@ -12,12 +12,15 @@ const icon = (name) => `mods/wfordiffs/icons/${name}.svg`;
 // Styles (see AGENTS.md).
 const bar = (theme) => (el) => el.h(HEADER_H).flex_none().px(14).gap(8).items_center().border_b(1).border_color(theme.border);
 const chip = (theme) => (el) => el.px(5).py(1).rounded(4).border_1().border_color(theme.border).text_size(10).text_color(theme.muted);
+// The branch HEAD is on, beside the picker: text, not a button.
+const branchName = (theme, px) => (el) => el.id("wfordiffs-head").min_w(0).max_w(px(160)).gap(4).items_center().text_size(px(11)).text_color(theme.muted);
 const notice = (theme, cfg) => (el) => el.min_w(0).truncate().text_size(10).text_color(addedColor(cfg, theme));
 
 /**
  * @typedef {object} HeaderOptions
  * @property {(n: number) => number} px scales a size at 12px
  * @property {object} cfg the user's colors (config.js)
+ * @property {string} head the branch HEAD is on (not changeable), "" when there is none
  * @property {string} revLabel the picker button's text: the commit or branch shown, or "Uncommitted"
  * @property {boolean} hasRev a commit is shown (its label takes the full text color)
  * @property {boolean} menuOpen the commit picker is open
@@ -47,6 +50,8 @@ export function header(theme, o) {
     onClick: (_e, cx) => o.onSetView({ [name]: !o.view[name] }, cx) }, theme);
   return bar(theme)(h_flex())
     .child(div().font_semibold().child("WForDiffs"))
+    .when(!!o.head, (el) => el.child(branchName(theme, o.px)(h_flex()).tooltip("The branch you are on")
+      .child(svg(icon("branch")).size(12).flex_none().text_color(theme.dim)).child(div().min_w(0).truncate().child(o.head))))
     .child(textButton({ id: "wfordiffs-rev", bordered: true, active: o.menuOpen, color: o.hasRev ? theme.foreground : theme.muted,
       tooltip: "Uncommitted changes, what this branch adds to another, or what a commit changed", label: o.revLabel,
       onClick: (_e, cx) => o.onToggleMenu(cx) }, theme))

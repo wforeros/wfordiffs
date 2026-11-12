@@ -188,3 +188,19 @@ test("branches: the others, and what HEAD adds since they met", async () => {
   assert.equal(r.message, "");
   assert.ok(mine);
 });
+
+test("load names the branch HEAD is on, and a detached HEAD by its hash", async () => {
+  const dir = scratchRepo();
+  write(dir, "a.txt", "1\n"); git(dir, "add", "."); git(dir, "commit", "-qm", "one");
+  const loc = { cwd: dir, on: null };
+  const name = git(dir, "branch", "--show-current").toString().trim();
+  assert.equal((await load(loc)).branch, name);
+  assert.equal((await load(loc, git(dir, "rev-parse", "HEAD").toString().trim())).branch, name); // a commit shown: still the branch
+  git(dir, "checkout", "-q", "--detach");
+  assert.match((await load(loc)).branch, /^detached [0-9a-f]{7,}$/);
+});
+
+test("a repo without commits still names its branch", async () => {
+  const dir = scratchRepo();
+  assert.equal((await load({ cwd: dir, on: null })).branch, git(dir, "branch", "--show-current").toString().trim());
+});

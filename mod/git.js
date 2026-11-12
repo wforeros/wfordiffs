@@ -47,6 +47,14 @@ export function makeGit({ exec, readTextFile }) {
     return log.code !== 0 ? [] : log.stdout.split("\n").filter(Boolean).map((l) => { const [sha, short, subject] = l.split("\x1f"); return { sha, short, subject }; });
   }
 
+  // The branch HEAD is on; on a detached HEAD, "detached <short hash>"; a repo without commits names its unborn branch.
+  async function currentBranch(g) {
+    const name = await exec("git", [...GIT, "branch", "--show-current"], g);
+    if (name.stdout.trim()) return name.stdout.trim();
+    const head = await exec("git", [...GIT, "rev-parse", "--short", "HEAD"], g);
+    return head.code === 0 ? `detached ${head.stdout.trim()}` : "";
+  }
+
   // rev: a commit to show instead of the worktree; its changes are the diff against its first parent.
   // against: a branch to compare with; shows what HEAD adds since the two met (rev is then HEAD, whatever was passed).
   async function load(loc, rev = null, against = null) {
@@ -55,7 +63,7 @@ export function makeGit({ exec, readTextFile }) {
     const g = { cwd: top.stdout.trim(), on: loc.on };
     const run = (args) => exec("git", [...GIT, ...args], g);
     // The last commits of the branch, for the picker (none in a repo without commits).
-    const commits = await recentCommits(g, COMMITS);
+    const [commits, branch] = await Promise.all([recentCommits(g, COMMITS), currentBranch(g)]);
     if (against) rev = "HEAD";
     if (rev) {
       let from;
@@ -76,7 +84,7 @@ export function makeGit({ exec, readTextFile }) {
       const listed = parseNumstat(num.stdout).map((f) => ({ ...f, status: status[f.path] ?? "M", unstaged: false }));
       const bad = await notUtf8(g, listed.map((f) => f.path), from, rev);
       const files = listed.map((f) => (bad.has(f.path) ? { ...f, binary: true } : f));
-      return { root: g.cwd, base: from, rev, files, commits, message: body.stdout.trim(), error: null };
+      return { root: g.cwd, base: from, rev, files, commits, branch, message: body.stdout.trim(), error: null };
     }
     const head = await run(["rev-parse", "--verify", "-q", "HEAD"]);
     const base = head.code === 0 ? "HEAD" : EMPTY_TREE;
@@ -101,7 +109,7 @@ export function makeGit({ exec, readTextFile }) {
       const lines = isText ? text.split("\n").length - Number(text.endsWith("\n")) : 0;
       return { path, add: lines, del: 0, binary: !isText, status: "A", untracked: true, unstaged: true };
     }));
-    return { root: g.cwd, base, rev: null, files: [...files, ...untracked], commits, error: null };
+    return { root: g.cwd, base, rev: null, files: [...files, ...untracked], commits, branch, error: null };
   }
 
   async function diffFor(loc, f, base, rev = null) {
