@@ -5,7 +5,7 @@
 ```
 mod/main.js       the GitDiff view: refresh loop, key commands, and render() composing the pieces below from its state
 mod/view-state.js pure: initialState() (every field, grouped), commitSwitchState() (what a commit switch resets)
-mod/git.js        makeGit({ exec, readTextFile }) -> load (changed files, or a commit's, plus the last 4 commits), diffFor (one file's rows), discard (one file's unstaged changes), history (the branch's newest commits, for the picker's search). A file whose text is not UTF-8 (base, commit or worktree side) is listed as binary: `notUtf8` runs `iconv` on the repo's machine, so the text never crosses `exec`
+mod/git.js        makeGit({ exec, readTextFile }) -> load (changed files, or a commit's, plus the last 4 commits), diffFor (one file's rows), discard (one file's unstaged changes), history (the branch's newest commits, for the commits list's search), branches (the other branches, for the compare list); `load(loc, rev, against)` with a branch shows what HEAD adds since the merge base. A file whose text is not UTF-8 (base, commit or worktree side) is listed as binary: `notUtf8` runs `iconv` on the repo's machine, so the text never crosses `exec`
 mod/highlight.js  makeHighlighter({ exec, settings }) -> bat colors; attachColors (pure)
 mod/hscroll.js    one open file's sideways scrolling (bar, wheel, drag); state lives on the view
 mod/parse.js      pure: numstat, name-status and unified-diff parsing
@@ -27,7 +27,7 @@ mod/commit-message.js  pure: a message's subject and body, and a commit's short 
 mod/ui/ui-buttons.js    textButton and iconButton, for the header and the rows
 mod/ui/ui-counts.js     the +N / −N counts and "binary"
 mod/ui/ui-header.js     the header: title, picker button, toggles, totals
-mod/ui/ui-commit-menu.js  the commit's message block and the picker (search field, Uncommitted/Committed, the list)
+mod/ui/ui-commit-menu.js  the commit's message block and the picker (Uncommitted, Branches, Commits; the commits list has the search field)
 mod/ui/ui-file-row.js   folder rows, file rows and the tree's guide lines
 mod/ui/ui-diff-row.js   a diff's rows: code row, split row, hunk header, change bar, hatching
 mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
@@ -97,8 +97,9 @@ spacer keeps their icons in line with the folders' icons, and a click opens the 
 The dropdown beside the title sets `this.rev` (`null`: the uncommitted changes). With a `rev`, `load` diffs
 `rev^` (or the empty tree for a root commit) against `rev`, with no untracked files, and `diffFor` and
 `highlight` read that commit's files from git, not the worktree. The list and the tree show the result the
-same way. The nvim and discard buttons are hidden then. Hovering "Committed" opens the last 4 commits of
-the branch (`COMMITS` in `git.js`).
+same way. The nvim and discard buttons are hidden then. Hovering "Commits" opens the last 4 commits of
+the branch (`COMMITS` in `git.js`) under a search field. Hovering "Branches" lists the other branches: picking one sets
+`this.branch` (and `rev` to `"HEAD"`), and the panel shows HEAD against the merge base of the two, like a pull request.
 
 ## Full screen
 

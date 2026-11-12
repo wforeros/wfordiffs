@@ -28,7 +28,7 @@ import { treeRows } from "./tree.js";
 import { makeNvim, FIND_NVIM } from "./nvim.js";
 import { makeLazygit, FIND_LAZYGIT } from "./lazygit.js";
 
-const { load, diffFor, discard, history } = makeGit({ exec, readTextFile });
+const { load, diffFor, discard, history, branches } = makeGit({ exec, readTextFile });
 const { highlight } = makeHighlighter({ exec, settings });
 const { hasNvim } = makeNvim({ exec });
 const { hasLazygit } = makeLazygit({ exec });
@@ -57,7 +57,7 @@ export default class GitDiff extends View {
     // Keys (see onKey()): the panel takes the keyboard on a click.
     this.handle = cx.focus_handle();
     this.listScroll = ScrollHandle.new();
-    // The picker's search field: it filters the branch's commits; enter shows the first match.
+    // The commits list's search field: it filters the branch's commits; enter shows the first match.
     this.searchInput = InputState.new({ placeholder: "Search commits…" });
     this.searchInput.on("change", (_e, cx) => { this.query = this.searchInput.value(); cx.notify(); });
     this.searchInput.on("submit", (_e, cx) => { const first = this.shownCommits()[0]; if (first) this.selectCommit(first.sha, cx); });
@@ -93,13 +93,13 @@ export default class GitDiff extends View {
   refresh(cx) {
     if (this.busy) return;
     this.busy = true;
-    const asked = this.rev, stale = () => asked !== this.rev;
+    const asked = this.rev, askedBranch = this.branch, stale = () => asked !== this.rev || askedBranch !== this.branch;
     cx.spawn(async (cx) => {
       try {
         const loc = activeLocation();
         const rev = asked;
-        const next = await load(loc, rev);
-        if (rev !== this.rev) return; // another commit was picked meanwhile: the finally below loads it
+        const next = await load(loc, rev, askedBranch);
+        if (stale()) return; // another commit was picked meanwhile: the finally below loads it
         this.commits = next.commits ?? []; this.message = next.message ?? "";
         this.error = next.error;
         this.root = next.root; this.base = next.base;
@@ -111,7 +111,7 @@ export default class GitDiff extends View {
           if (this.lazygit) this.openLazygit(cx);
           else this.flashMessage("lazygit is not installed on the repo's machine", cx);
         }
-        const fp = JSON.stringify([rev, ...next.files.map((f) => [f.path, f.add, f.del, f.status, f.binary])]);
+        const fp = JSON.stringify([rev, askedBranch, ...next.files.map((f) => [f.path, f.add, f.del, f.status, f.binary])]);
         if (fp !== this.fp) {
           this.fp = fp; this.files = next.files; this.diffs = {}; this.sel = null; this.block = null; // the rows it pointed at are gone
           for (const p of [...this.open]) if (!next.files.some((f) => f.path === p && openable(f))) this.open.delete(p);
@@ -127,24 +127,38 @@ export default class GitDiff extends View {
   }
 
   // Shows the changes of a commit (null: the uncommitted ones) in both the list and the tree.
-  selectCommit(rev, cx) {
-    this.menu = false; this.sub = false;
-    if (rev !== this.rev) {
-      this.rev = rev;
+  selectCommit(rev, cx) { this.select(rev, null, cx); }
+
+  // Compares HEAD with a branch: what the current branch adds to it.
+  selectBranch(name, cx) { this.select("HEAD", name, cx); }
+
+  select(rev, branch, cx) {
+    this.menu = false; this.sub = null;
+    if (rev !== this.rev || branch !== this.branch) {
+      this.rev = rev; this.branch = branch;
       Object.assign(this, commitSwitchState());
       this.refresh(cx);
     }
     cx.notify();
   }
 
-  // The picker opens with its search field empty and focused; the branch's commits are read for the search.
+  // The picker opens with the search empty; the branches and the branch's commits are read for its lists.
   openPicker(cx) {
-    this.menu = true; this.sub = false; this.query = "";
+    this.menu = true; this.sub = null; this.query = "";
     this.searchInput.set_value("");
-    this.searchInput.focus();
     if (this.loc) {
-      cx.spawn(async (cx) => { this.branchCommits = await history(this.loc); cx.notify(); });
+      cx.spawn(async (cx) => {
+        [this.branchCommits, this.branches] = await Promise.all([history(this.loc), branches(this.loc)]);
+        cx.notify();
+      });
     }
+    cx.notify();
+  }
+
+  // Opens a list beside the picker; the commits' one takes the keyboard for its search field.
+  openSub(sub, cx) {
+    this.sub = sub;
+    if (sub === "commits") this.searchInput.focus();
     cx.notify();
   }
 
@@ -451,9 +465,9 @@ export default class GitDiff extends View {
     const totals = { add: this.files.reduce((n, f) => n + f.add, 0), del: this.files.reduce((n, f) => n + f.del, 0) };
     return drawHeader(t, {
       px: (n) => this.px(n), cfg: this.cfg, hasRev: !!this.rev, menuOpen: this.menu, fileCount: this.files.length,
-      revLabel: `${this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
+      revLabel: `${this.branch ? `vs ${this.branch}` : this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
       flash: this.flash, totals, view: { wrap: this.wrap, side: this.side, tree: this.tree }, isFull: !!props()?.full,
-      onToggleMenu: (cx) => { if (this.menu) { this.menu = false; this.sub = false; cx.notify(); } else this.openPicker(cx); },
+      onToggleMenu: (cx) => { if (this.menu) { this.menu = false; this.sub = null; cx.notify(); } else this.openPicker(cx); },
       onOpenSettings: () => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 510, props: { settings: true } }),
       onSetView: (patch, cx) => this.setView(patch, cx), onOpenFull: () => this.openFull(),
       lazygit: this.lazygit, onOpenLazygit: (cx) => this.openLazygit(cx) });
@@ -469,8 +483,9 @@ export default class GitDiff extends View {
   // The picker that opens from the header's button.
   commitPicker(t) {
     return commitMenu(t, {
-      rev: this.rev, commits: this.shownCommits(), query: this.query, listOpen: this.sub, px: (n) => this.px(n),
-      onListOpen: (open, cx) => { this.sub = open; cx.notify(); }, onPick: (sha, cx) => this.selectCommit(sha, cx),
+      rev: this.rev, branch: this.branch, branches: this.branches, commits: this.shownCommits(), query: this.query,
+      sub: this.sub, px: (n) => this.px(n), onSub: (sub, cx) => this.openSub(sub, cx),
+      onPick: (sha, cx) => this.selectCommit(sha, cx), onPickBranch: (name, cx) => this.selectBranch(name, cx),
       searchInput: this.searchInput });
   }
 

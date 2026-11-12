@@ -48,20 +48,29 @@ export function makeGit({ exec, readTextFile }) {
   }
 
   // rev: a commit to show instead of the worktree; its changes are the diff against its first parent.
-  async function load(loc, rev = null) {
+  // against: a branch to compare with; shows what HEAD adds since the two met (rev is then HEAD, whatever was passed).
+  async function load(loc, rev = null, against = null) {
     const top = await exec("git", [...GIT, "rev-parse", "--show-toplevel"], { cwd: loc.cwd, on: loc.on });
     if (top.code !== 0) return { root: null, base: EMPTY_TREE, files: [], commits: [], error: "Not a git repository" };
     const g = { cwd: top.stdout.trim(), on: loc.on };
     const run = (args) => exec("git", [...GIT, ...args], g);
     // The last commits of the branch, for the picker (none in a repo without commits).
     const commits = await recentCommits(g, COMMITS);
+    if (against) rev = "HEAD";
     if (rev) {
-      const parent = await run(["rev-parse", "--verify", "-q", `${rev}^`]);
-      const from = parent.code === 0 ? `${rev}^` : EMPTY_TREE;
+      let from;
+      if (against) {
+        // The merge base, as a pull request shows it; unrelated histories have none, so the branch itself is the base.
+        const mb = await run(["merge-base", against, "HEAD"]);
+        from = mb.code === 0 ? mb.stdout.trim() : against;
+      } else {
+        const parent = await run(["rev-parse", "--verify", "-q", `${rev}^`]);
+        from = parent.code === 0 ? `${rev}^` : EMPTY_TREE;
+      }
       const [num, ns, body] = await Promise.all([
         run(["diff", from, rev, "--numstat", "-z", "--no-renames"]),
         run(["diff", from, rev, "--name-status", "-z", "--no-renames"]),
-        run(["log", "-1", "--format=%B", rev]), // the whole message, subject and body
+        against ? { stdout: "" } : run(["log", "-1", "--format=%B", rev]), // the whole message, subject and body
       ]);
       const status = parseNameStatus(ns.stdout);
       const listed = parseNumstat(num.stdout).map((f) => ({ ...f, status: status[f.path] ?? "M", unstaged: false }));
@@ -122,5 +131,18 @@ export function makeGit({ exec, readTextFile }) {
     return recentCommits({ cwd: loc.cwd, on: loc.on }, HISTORY);
   }
 
-  return { load, diffFor, discard, history };
+  // The branches a comparison can be made with: local and remote, not the current one. [] outside a repo.
+  async function branches(loc) {
+    const g = { cwd: loc.cwd, on: loc.on };
+    const [refs, current] = await Promise.all([
+      exec("git", [...GIT, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"], g),
+      exec("git", [...GIT, "branch", "--show-current"], g),
+    ]);
+    if (refs.code !== 0) return [];
+    const me = current.stdout.trim();
+    return refs.stdout.split("\n").filter((r) => r && !r.endsWith("/HEAD"))
+      .map((r) => r.replace(/^refs\/(heads|remotes)\//, "")).filter((n) => n !== me);
+  }
+
+  return { load, diffFor, discard, history, branches };
 }

@@ -7,7 +7,7 @@ import { makeGit } from "../mod/git.js";
 import { EMPTY_TREE } from "../mod/parse.js";
 import { git, scratchRepo, write, exec, readTextFile } from "./helpers.mjs";
 
-const { load, diffFor, discard } = makeGit({ exec, readTextFile });
+const { load, diffFor, discard, branches } = makeGit({ exec, readTextFile });
 
 test("not a git repository", async () => {
   const r = await load({ cwd: mkdtempSync(join(tmpdir(), "nogit-")), on: null });
@@ -169,4 +169,22 @@ test("a commit with a non-UTF-8 file: listed as binary when that commit is shown
   const head = git(dir, "rev-parse", "HEAD").trim();
   const r = await load({ cwd: dir, on: null }, head);
   assert.equal(r.files.find((f) => f.path === "legacy.txt").binary, true);
+});
+
+test("branches: the others, and what HEAD adds since they met", async () => {
+  const dir = scratchRepo();
+  write(dir, "a.txt", "1\n"); git(dir, "add", "."); git(dir, "commit", "-qm", "base");
+  git(dir, "branch", "other");
+  write(dir, "b.txt", "x\n"); git(dir, "add", "."); git(dir, "commit", "-qm", "mine");
+  git(dir, "checkout", "-q", "other");
+  write(dir, "c.txt", "y\n"); git(dir, "add", "."); git(dir, "commit", "-qm", "theirs");
+  git(dir, "checkout", "-q", "-");
+  const loc = { cwd: dir, on: null };
+  const mine = git(dir, "branch", "--show-current").toString().trim();
+  assert.deepEqual(await branches(loc), ["other"]); // not the current one
+  const r = await load(loc, null, "other");
+  assert.equal(r.rev, "HEAD");
+  assert.deepEqual(r.files.map((f) => f.path), ["b.txt"]); // not c.txt: that is the other branch's
+  assert.equal(r.message, "");
+  assert.ok(mine);
 });

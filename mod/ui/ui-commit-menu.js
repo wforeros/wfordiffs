@@ -16,12 +16,12 @@ const subjectText = (theme, px, open) => (el) => el.flex_1().min_w(0).font_semib
   .text_color(theme.foreground).whitespace_normal().when(!open, (e) => e.truncate());
 const foldToggle = (theme, px) => (el) => el.flex_none().text_size(px(10)).text_color(theme.muted);
 const bodyText = (theme, px) => (el) => el.whitespace_normal().text_size(px(11)).text_color(theme.muted);
-// A floating panel: the picker and its list of commits.
+// A floating panel: the picker and its lists.
 const popup = (theme) => (el) => el.rounded(6).border_1().border_color(theme.border).bg(theme.popover ?? theme.background).py(4);
 // A row of the picker; `active` is the one in use.
 const menuRow = (theme, px, active) => (el) => el.px(10).h(px(26)).flex().items_center().cursor_pointer()
   .hover((s) => s.bg(theme.hover)).when(active, (e) => e.bg(theme.selected));
-// The search field, on top of the picker.
+// The search field, on top of the commits.
 const searchField = (theme, px) => (el) => el.h(px(26)).mx(4).mt(4).mb(2).px(8).rounded(4).border_1().border_color(theme.border).items_center();
 
 /**
@@ -57,44 +57,53 @@ export function messageBox(theme, { message, short, open, px, onToggle }) {
 /**
  * @typedef {object} CommitMenuOptions
  * @property {string|null} rev the commit shown (null: the uncommitted changes)
+ * @property {string|null} branch the branch HEAD is compared with (null: none)
+ * @property {string[]} branches the branches the list offers
  * @property {{ sha: string, short: string, subject: string }[]} commits the commits the list shows (the recent ones, or the search's matches)
  * @property {string} query the search field's text ("" when there is none)
- * @property {boolean} listOpen the list of commits is open beside the menu
+ * @property {"branches"|"commits"|null} sub the list open beside the menu
  * @property {(n: number) => number} px scales a size at 12px
- * @property {(open: boolean, cx: object) => void} onListOpen open or close the list
+ * @property {(sub: "branches"|"commits"|null, cx: object) => void} onSub open a list, or close it
  * @property {(sha: string|null, cx: object) => void} onPick show a commit (null: the uncommitted changes)
- * @property {object} searchInput the search field's text (the view's InputState); it takes the focus when the picker opens
+ * @property {(name: string, cx: object) => void} onPickBranch compare HEAD with a branch
+ * @property {object} searchInput the search field's text (the view's InputState)
  */
 
 /**
- * The picker: a search field, then Uncommitted and Committed; the list of commits opens beside them on hover
- * (or while there is a query), and the field filters it.
+ * The picker: Uncommitted, Branches and Commits. Hovering Branches lists the branches to compare with;
+ * hovering Commits lists the recent commits under a search field, which filters the whole branch.
  * @param {object} theme
  * @param {CommitMenuOptions} options
  */
-export function commitMenu(theme, { rev, commits, query, listOpen, px, onListOpen, onPick, searchInput }) {
+export function commitMenu(theme, { rev, branch, branches, commits, query, sub, px, onSub, onPick, onPickBranch, searchInput }) {
   const row = (id, active) => menuRow(theme, px, active)(div().id(id));
   const search = searchField(theme, px)(h_flex().id("herdr-gitdiff-search").w_full())
     .child(Input.new(searchInput).flex_1().h_full().text_size(px(11)).text_color(theme.foreground));
   const uncommitted = row("rev-uncommitted", !rev).w(150)
-    .on_hover((hovered, cx) => { if (hovered && listOpen && !query) onListOpen(false, cx); })
+    .on_hover((hovered, cx) => { if (hovered && sub && !(sub === "commits" && query)) onSub(null, cx); })
     .on_click((_e, cx) => onPick(null, cx))
     .child("Uncommitted");
-  const committed = h_flex().w(150).child(row("rev-committed", !!rev || listOpen).w_full().justify_between()
-    .on_hover((hovered, cx) => { if (hovered && !listOpen) onListOpen(true, cx); })
-    .on_click((_e, cx) => onListOpen(true, cx))
-    .child("Committed")
+  const entry = (kind, label, active) => h_flex().w(150).child(row(`rev-${kind}`, active || sub === kind).w_full().justify_between()
+    .on_hover((hovered, cx) => { if (hovered && sub !== kind) onSub(kind, cx); })
+    .on_click((_e, cx) => onSub(kind, cx))
+    .child(label)
     .child(div().text_color(theme.dim).child("›")));
-  const commitRows = commits.map((c) => row(`rev-${c.sha}`, c.sha === rev).gap(8)
+  const note = (text) => div().px(10).py(4).text_color(theme.dim).child(text);
+  const branchRows = branches.map((name) => row(`branch-${name}`, name === branch)
+    .on_click((_e, cx) => onPickBranch(name, cx))
+    .child(div().min_w(0).truncate().child(name)));
+  const commitRows = commits.map((c) => row(`rev-${c.sha}`, c.sha === rev && !branch).gap(8)
     .on_click((_e, cx) => onPick(c.sha, cx))
     .child(div().text_color(theme.dim).flex_none().child(c.short))
     .child(div().min_w(0).truncate().child(c.subject)));
-  const empty = query ? "Nothing matches" : "No commits";
-  const list = popup(theme)(v_flex()).w(260)
-    .children(commitRows.length ? commitRows : [div().px(10).py(4).text_color(theme.dim).child(empty)]);
+  const branchList = popup(theme)(v_flex()).w(260).id("herdr-gitdiff-branches").max_h(px(260)).overflow_y_scroll()
+    .children(branchRows.length ? branchRows : [note("No other branches")]);
+  const commitList = popup(theme)(v_flex()).w(260).child(search)
+    .children(commitRows.length ? commitRows : [note(query ? "Nothing matches" : "No commits")]);
   // The picker takes the clicks in it, so the panel does not take the keyboard from the field.
   return h_flex().absolute().top(40).left(14).items_start()
     .on_mouse_down("left", (_e, cx) => { searchInput.focus(); cx.stop_propagation(); })
-    .child(popup(theme)(v_flex().w(150)).child(search).child(uncommitted).child(committed))
-    .when(listOpen || !!query, (e) => e.child(div().w(4).h(1)).child(list));
+    .child(popup(theme)(v_flex().w(150)).child(uncommitted)
+      .child(entry("branches", "Branches", !!branch)).child(entry("commits", "Commits", !!rev && !branch)))
+    .when(!!sub, (e) => e.child(div().w(4).h(1)).child(sub === "branches" ? branchList : commitList));
 }

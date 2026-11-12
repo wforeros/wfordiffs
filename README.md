@@ -7,8 +7,9 @@ A Changes panel for [Herdr](https://herdr.dev): the files changed in the repo yo
 ## Features
 
 - List of changed files with `+N` / `−N` counts, untracked files and binary files marked.
-- Commit picker: show the uncommitted changes, or one of the last 4 commits.
-- Search commits by the start of their hash or part of their subject, among the newest 500 of the branch; Enter shows the first match.
+- Picker: Uncommitted (the default), Branches or Commits.
+- Branches: pick one to compare it with the current branch (what the current branch adds since they met, as a pull request shows it).
+- Commits: the last 4; the search field sits in this list. Search commits by the start of their hash or part of their subject, among the newest 500 of the branch; Enter shows the first match.
 - Inline diff with line numbers, added and removed tints, and syntax colors.
 - Exact changed words get a stronger tint inside each line.
 - Toggle between the unified view and split view (*Before* / *After*).

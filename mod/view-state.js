@@ -41,11 +41,13 @@ export function initialState() {
 
     // The commit shown (null: the uncommitted changes) and its picker
     rev: null,
+    branch: null,             // a branch is compared with HEAD (rev is then "HEAD"); null: not comparing
+    branches: [],             // the branches to pick from, read when the picker opens
     commits: [],
     message: "",
     msgOpen: false,           // the shown commit's message, folded or not
     menu: false,              // the picker beside the title is open
-    sub: false,               // and its list of commits
+    sub: null,                // and the list beside it: "branches", "commits" or null
     query: "",                // the picker's search field's text: "" lists the recent commits
     branchCommits: [],        // the branch's commits, read when the picker opens, for the search
 

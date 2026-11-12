@@ -18,7 +18,7 @@ const notice = (theme, cfg) => (el) => el.min_w(0).truncate().text_size(10).text
  * @typedef {object} HeaderOptions
  * @property {(n: number) => number} px scales a size at 12px
  * @property {object} cfg the user's colors (config.js)
- * @property {string} revLabel the picker button's text: the commit shown, or "Uncommitted"
+ * @property {string} revLabel the picker button's text: the commit or branch shown, or "Uncommitted"
  * @property {boolean} hasRev a commit is shown (its label takes the full text color)
  * @property {boolean} menuOpen the commit picker is open
  * @property {number} fileCount
@@ -45,7 +45,7 @@ export function header(theme, o) {
   return bar(theme)(h_flex())
     .child(div().font_semibold().child("Herdr Diffview"))
     .child(textButton({ id: "herdr-gitdiff-rev", bordered: true, active: o.menuOpen, color: o.hasRev ? theme.foreground : theme.muted,
-      tooltip: "Uncommitted changes, or what a recent commit changed", label: o.revLabel,
+      tooltip: "Uncommitted changes, what this branch adds to another, or what a commit changed", label: o.revLabel,
       onClick: (_e, cx) => o.onToggleMenu(cx) }, theme))
     .child(chip(theme)(div()).child(`${o.fileCount} files`))
     .when(!!o.flash, (el) => el.child(notice(theme, o.cfg)(div()).child(o.flash)))
