@@ -26,6 +26,8 @@ const notice = (theme, cfg) => (el) => el.min_w(0).truncate().text_size(10).text
  * @property {{ add: number, del: number }} totals lines added and removed over all the files
  * @property {{ wrap: boolean, side: boolean, tree: boolean }} view the shared toggles
  * @property {boolean} isFull this is the full screen copy (it has no "full" button)
+ * @property {(cx: object) => void} onExpandAll open every file's diff
+ * @property {(cx: object) => void} onCollapseAll close them all
  * @property {(cx: object) => void} onToggleMenu
  * @property {() => void} onOpenSettings
  * @property {(patch: object, cx: object) => void} onSetView patch of { wrap, side, tree }
@@ -55,6 +57,10 @@ export function header(theme, o) {
     .when(o.lazygit, (el) => el.child(iconButton({ id: "herdr-gitdiff-lazygit", icon: icon("lazygit"),
       active: o.lazygitOn, tooltip: o.lazygitOn ? "Close lazygit" : "Open lazygit in this repo",
       onClick: (_e, cx) => o.onToggleLazygit(cx) }, theme)))
+    .child(iconButton({ id: "herdr-gitdiff-expand", icon: icon("expand"), tooltip: "Expand all diffs",
+      onClick: (_e, cx) => o.onExpandAll(cx) }, theme))
+    .child(iconButton({ id: "herdr-gitdiff-collapse", icon: icon("collapse"), tooltip: "Collapse all diffs",
+      onClick: (_e, cx) => o.onCollapseAll(cx) }, theme))
     .child(toggle("wrap", "wrap", "Wrap long lines"))
     .child(toggle("side", "split", "Split: before on the left, after on the right"))
     .child(toggle("tree", "tree", "Tree: show the changed folders as a tree, on the right"))

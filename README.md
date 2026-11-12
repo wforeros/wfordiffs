@@ -14,6 +14,7 @@ A Changes panel for [Herdr](https://herdr.dev): the files changed in the repo yo
 - Exact changed words get a stronger tint inside each line.
 - Toggle between the unified view and split view (*Before* / *After*).
 - Toggle a tree view of the changed files, with folders that fold and unfold.
+- Header buttons to expand or collapse every diff (also the `expand-all` and `collapse-all` commands; expanding opens up to 50 files).
 - Toggle line wrap for long lines.
 - Select lines or blocks and copy a `path#L12-L14` reference to the clipboard.
 - Discard unstaged changes per file, with a confirmation.

@@ -90,11 +90,8 @@ export default class GitDiff extends View {
         else if (command === "lazygit-pane") { if (!props()?.full && !this.tools.isUp("lazygit")) this.openLazygit(cx, { pane: true }); }
         // pane.go (ctrl-a then h/j/k/l, or the keys) gives the panel the keyboard: it takes it on its own handle.
         else if (command === "focus") this.handle.focus();
-        else if (command === "collapse-all") this.open.clear();
-        else if (command === "expand-all") {
-          for (const f of this.files.slice(0, EXPAND_MAX)) if (openable(f)) this.open.add(f.path);
-          for (const p of this.open) this.loadDiff(p, cx);
-        }
+        else if (command === "collapse-all") this.collapseAll(cx);
+        else if (command === "expand-all") this.expandAll(cx);
         cx.notify();
       }
     });
@@ -187,6 +184,18 @@ export default class GitDiff extends View {
       if (fp === this.fp) this.diffs[path] = numberBlocks(rows);
       cx.notify();
     });
+  }
+
+  // Opens the diff of every file (up to EXPAND_MAX), and closes them all. The keys and the header's buttons.
+  expandAll(cx) {
+    for (const f of this.files.slice(0, EXPAND_MAX)) if (openable(f)) this.open.add(f.path);
+    for (const p of this.open) this.loadDiff(p, cx);
+    cx.notify();
+  }
+
+  collapseAll(cx) {
+    this.open.clear();
+    cx.notify();
   }
 
   // A tree folder: collapsed, its contents leave the list; open again, they come back.
@@ -507,6 +516,7 @@ export default class GitDiff extends View {
       px: (n) => this.px(n), cfg: this.cfg, hasRev: !!this.rev, menuOpen: this.menu, fileCount: this.files.length,
       revLabel: `${this.branch ? `vs ${this.branch}` : this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
       flash: this.flash, totals, view: { wrap: this.wrap, side: this.side, tree: this.tree }, isFull: !!props()?.full,
+      onExpandAll: (cx) => this.expandAll(cx), onCollapseAll: (cx) => this.collapseAll(cx),
       onToggleMenu: (cx) => { if (this.menu) { this.menu = false; this.sub = null; cx.notify(); } else this.openPicker(cx); },
       onOpenSettings: () => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 596, props: { settings: true } }),
       onSetView: (patch, cx) => this.setView(patch, cx), onOpenFull: () => this.openFull(),
