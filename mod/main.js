@@ -25,6 +25,7 @@ import { errorBar } from "./ui/ui-error-bar.js";
 import { codeRow as drawCodeRow, splitRow as drawSplitRow, hatching, blockAction } from "./ui/ui-diff-row.js";
 import { dirRow as drawDirRow, fileRow as drawFileRow } from "./ui/ui-file-row.js";
 import { settingsView } from "./settings-view.js";
+import { settingsRows, moveCursor } from "./settings-model.js";
 import { discardView } from "./discard-view.js";
 import { hscroll } from "./hscroll.js";
 import { makeHighlighter, attachColors } from "./highlight.js";
@@ -59,7 +60,12 @@ function activeLocation() {
 export default class GitDiff extends View {
   init(_props, cx) {
     Object.assign(this, initialState()); // view-state.js: every field and what it is for
-    if (props()?.settings) return; // the gear window: it only draws the settings
+    if (props()?.settings) { // the gear window: it draws the settings, and takes the keys to move over them
+      this.handle = cx.focus_handle();
+      this.settingsAt = { row: 0, col: 0 };
+      this.handle.focus();
+      return;
+    }
     if (props()?.discard) return; // the confirm dialog of a discard
     // Keys (see onKey()): the panel takes the keyboard on a click.
     this.handle = cx.focus_handle();
@@ -561,7 +567,7 @@ export default class GitDiff extends View {
   render(cx) {
     const t = theme();
     this.syncShared();
-    if (props()?.settings) return settingsView(t, this.cfg);
+    if (props()?.settings) return settingsView(t, this.cfg, { cursor: this.settingsAt, handle: this.handle, onKey: (e, cx) => this.onSettingsKey(e, cx) });
     if (props()?.discard) return discardView(t, { target: props().discard.file, busy: this.busy, error: this.err,
       onConfirm: (_e, cx) => this.confirmDiscard(cx), onCancel: () => closeOverlay(props().overlay) });
     this.countsW = this.countsWidth();
@@ -581,6 +587,21 @@ export default class GitDiff extends View {
         onCopy: (_e, cx) => this.copyError(cx), onDismiss: (_e, cx) => { this.toolError = null; cx.notify(); } })))
       // Last, so it paints over the body.
       .when(this.menu, (e) => e.child(this.commitPicker(t)));
+  }
+
+  // Keys in the settings window: h j k l or the arrows move over the cells, Enter (or space) presses the one under the
+  // cursor, Esc closes. Other keys pass on.
+  onSettingsKey(e, cx) {
+    const k = e.keystroke, rows = settingsRows(this.cfg);
+    const moved = moveCursor(this.settingsAt, k, rows) ?? moveCursor(this.settingsAt, e.key, rows); // the arrows are named by key
+    if (moved) this.settingsAt = moved;
+    else if (k === "enter" || k === "space") {
+      const cell = rows[this.settingsAt.row]?.cells[this.settingsAt.col];
+      if (cell) setShared(CFG_KEY, { ...this.cfg, ...cell.patch });
+    } else if (k === "escape") closeOverlay(props()?.overlay);
+    else return;
+    cx.stop_propagation();
+    cx.notify();
   }
 
   // The line between the columns. Drag it to make the tree wider or narrower.
