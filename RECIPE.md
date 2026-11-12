@@ -23,7 +23,7 @@ A panel that lists the files changed in the shown repo, each opening inline into
 - **split**, **tree** and **wrap** are one shared choice, saved in Herdr's shared settings. The menu and the full-screen copy show the same choice.
 - **full** (or the `fullscreen` command) opens the same panel in a large dialog over the window. Esc or a click outside closes it.
 - The gear opens a small window to pick the added and removed colors from a palette, set how strong the tints are, and set the font size from 9 to 24 px (default 12). **Reset** restores the defaults.
-- The mod has three commands for keys: `refresh`, `expand-all` (opens up to 50 changed files) and `collapse-all`. They reach the panel only while it is shown.
+- The mod has these commands for keys: `refresh` and `collapse-all`, besides the ones that open full screen and lazygit. They reach the panel only while it is shown.
 - A second mod, the Changes menu, opens with a key from the tmux-style prefix (`<leader>G`) as a popup at the top of the window. It has a filter field and rows: Open pane (shows the panel in the side panel), Fullscreen, Lazygit (which opens lazygit in the repo in a big dialog), and Split view, Tree and Wrap (with *on* or *off* on the right; the rows stay open after a toggle). Esc or a click outside closes it.
 
 The mod has no agent states: it shows the repo's changes only.
@@ -50,13 +50,13 @@ The script never touches `keys.json` or any layout. Showing the panel and bindin
      ```
   3. In the tab bar clone, add `"diffviewer"` to the `enabled` list and a button after Changes: `panelButton("diffviewer", "Diffviewer", "mods/wfordiffs/icons/split.svg")`. The icon is ours, so the button needs nothing from another mod.
   Save: the window follows within a second. The panel needs no `"focusable"` entry in the layout, because `mod/mod.json` already sets it. Keys can open it too: `"<key>": "<tab bar mod>.diffviewer"` in `keys.json`.
-- **Keys:** to bind a command, the user adds `wfordiffs.<command>` (`refresh`, `expand-all`, `collapse-all`, `fullscreen`, `lazygit-fullscreen`, `lazygit-pane`) in `keys.json`. The menu opens from its `<leader>G` binding, which is also theirs to set.
+- **Keys:** to bind a command, the user adds `wfordiffs.<command>` (`refresh`, `collapse-all`, `fullscreen`, `lazygit-fullscreen`, `lazygit-pane`) in `keys.json`. The menu opens from its `<leader>G` binding, which is also theirs to set.
 
 ## Watch out
 
 - Colors come from Catppuccin (Mocha, or Latte in light appearance), not from Herdr's theme.
 - Without `bat`, highlighting is a small per-line lexer for js/ts, python and shell. Other languages come out in one color, and block comments and multi-line strings stay plain.
-- Each opened file runs up to two `bat` calls, so *expand-all* on many files is slow.
+- Each opened file runs up to two `bat` calls, so opening many files at once is slow.
 - There is no virtual list: a very large diff renders every row.
 - Whether a file needs its horizontal bar is estimated from its longest line (9.6 px per character), not measured. The bar can appear late or not at all when the font or zoom changes.
 - A single very long token (a minified line, a long URL) still needs the horizontal bar in wrap mode.

@@ -16,13 +16,13 @@ A Changes panel for [Herdr](https://herdr.dev): the files changed in the repo yo
 - Toggle a tree view of the changed files, with folders that fold and unfold.
 - The settings window works from the keyboard: `h` `j` `k` `l` or the arrows move over the options, `Enter` (or space) presses one, `Esc` closes. Enter on the chosen color lets it go. Reset asks for confirmation first (Enter confirms, Esc cancels).
 - The header shows the branch you are on beside the picker (read-only; "detached <hash>" on a detached HEAD).
-- Header buttons to expand or collapse every diff (also the `expand-all` and `collapse-all` commands; expanding opens up to 50 files).
+- A header button to collapse every diff (also the `collapse-all` command).
 - While you scroll the list, a chip at the top names the file at the top of the list, when that file's diff is taller than the list (wheel only).
 - Toggle line wrap for long lines.
 - Select lines or blocks and copy a `path#L12-L14` reference to the clipboard.
 - Discard unstaged changes per file, with a confirmation.
 - Customize the added and removed colors from a palette, the tint strength, the font size (9–24 px) and where Lazygit and Neovim open (over the panel or fullscreen) from the gear settings, with a reset to defaults.
-- Keyboard navigation (`j`, `k`, `l`, `h`, `enter`) and commands `refresh`, `expand-all`, `collapse-all`, `fullscreen`, `lazygit-fullscreen`, `lazygit-pane`.
+- Keyboard navigation (`j`, `k`, `l`, `h`, `enter`) and commands `refresh`, `collapse-all`, `fullscreen`, `lazygit-fullscreen`, `lazygit-pane`.
 - Makes no commits and no branches.
 
 ### Optional extras

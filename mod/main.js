@@ -49,8 +49,6 @@ const openable = (f) => !f.binary;
 const POLL_MS = 5000;
 // The tree column's share of the body when the tree is on, kept between these by the divider.
 const SPLIT_MIN = 0.2, SPLIT_MAX = 0.8;
-// shortcut: expand-all opens at most this many files, each one is a git diff call; raise it if you need more.
-const EXPAND_MAX = 50;
 
 function activeLocation() {
   const space = spaces().find((s) => s.active), f = focused();
@@ -109,7 +107,6 @@ export default class GitDiff extends View {
         // pane.go (ctrl-a then h/j/k/l, or the keys) gives the panel the keyboard: it takes it on its own handle.
         else if (command === "focus") this.handle.focus();
         else if (command === "collapse-all") this.collapseAll(cx);
-        else if (command === "expand-all") this.expandAll(cx);
         cx.notify();
       }
     });
@@ -204,13 +201,7 @@ export default class GitDiff extends View {
     });
   }
 
-  // Opens the diff of every file (up to EXPAND_MAX), and closes them all. The keys and the header's buttons.
-  expandAll(cx) {
-    for (const f of this.files.slice(0, EXPAND_MAX)) if (openable(f)) this.open.add(f.path);
-    for (const p of this.open) this.loadDiff(p, cx);
-    cx.notify();
-  }
-
+  // Closes every open diff. The key and the header's button.
   collapseAll(cx) {
     this.open.clear();
     cx.notify();
@@ -534,7 +525,7 @@ export default class GitDiff extends View {
       px: (n) => this.px(n), cfg: this.cfg, hasRev: !!this.rev, menuOpen: this.menu, fileCount: this.files.length,
       head: this.head, onLeftSize: (w, cx) => { if (w !== this.headLeftW) { this.headLeftW = w; cx.notify(); } }, revLabel: `${this.branch ? `vs ${this.branch}` : this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
       flash: this.flash, totals, view: { wrap: this.wrap, side: this.side, tree: this.tree }, isFull: !!props()?.full,
-      onExpandAll: (cx) => this.expandAll(cx), onCollapseAll: (cx) => this.collapseAll(cx),
+      onCollapseAll: (cx) => this.collapseAll(cx),
       onToggleMenu: (cx) => { if (this.menu) { this.menu = false; this.sub = null; cx.notify(); } else this.openPicker(cx); },
       onOpenSettings: () => openOverlay({ mod: "wfordiffs", kind: "window", key: "gitdiff-settings", width: 300, height: 596, props: { settings: true } }),
       onSetView: (patch, cx) => this.setView(patch, cx), onOpenFull: () => this.openFull(),
