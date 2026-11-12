@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Installs the wfordiffs mods into a Herdr app home: the Changes panel (mod/) and its menu (menu/).
 # Touches only mods/wfordiffs and mods/wfordiffs-menu: no keys, no layouts (the layout that
-# shows them is yours to set).
+# shows them is yours to set), unless you ask with --button (then, also your layout and tab bar clones).
 #
 #   ./install.sh                     -> $HERDR_APP_HOME or ~/.config/herdr-app
 #   HERDR_APP_HOME='C:\Users\me\.config\herdr-app' ./install.sh
 #   ./install.sh --uninstall
+#   ./install.sh --button            -> also adds a Diffviewer button next to Changes (top-right corner): see button-setup.mjs
 #
 # Under WSL, HERDR_APP_HOME may be the Windows form (C:\...) or the /mnt/c path.
 # HERDR_APP_BIN: the herdr-app binary, used to check each mod before it lands.
@@ -25,6 +26,15 @@ die() { printf 'wfordiffs: %s\n' "$*" >&2; exit 1; }
 
 # Only ever replace or remove our own folder: its mod.json has our title.
 ours() { [ ! -e "$1" ] || grep -q "\"title\"[[:space:]]*:[[:space:]]*\"$2\"" "$1/mod.json" 2>/dev/null; }
+
+BUTTON=0
+for a in "$@"; do
+  case "$a" in
+    --uninstall|--button) ;;
+    *) die "unknown option: $a" ;;
+  esac
+  [ "$a" = "--button" ] && BUTTON=1
+done
 
 if [ "${1:-}" = "--uninstall" ]; then
   for m in "${MODS[@]}"; do
@@ -84,3 +94,9 @@ for m in "${MODS[@]}"; do
   rm -rf "$STAGE" "$HOME_DIR/mods/.$name-old"
   say "installed $name into $HOME_DIR"
 done
+
+# On request only: the button needs edits to the user's layout and tab bar clones (button-setup.mjs says which).
+if [ "$BUTTON" = 1 ]; then
+  command -v node >/dev/null || die "--button needs node"
+  node "$ROOT/button-setup.mjs" "$HOME_DIR"
+fi

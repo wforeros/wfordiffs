@@ -49,6 +49,7 @@ The script never touches `keys.json` or any layout. Showing the panel and bindin
      { "id": "diffviewer", "type": "block", "content": { "mod": "wfordiffs" } }
      ```
   3. In the tab bar clone, add `"diffviewer"` to the `enabled` list and a button after Changes: `panelButton("diffviewer", "Diffviewer", "mods/wfordiffs/icons/split.svg")`. The icon is ours, so the button needs nothing from another mod.
+  `./install.sh --button` does both steps on request (it is the only way `install.sh` touches a layout or a tab bar): it reads the shown layout from `shared.json`, adds the block and the button, and changes nothing if either is not the user's own clone or not in the expected shape (`button-setup.mjs`, tested). Running it again does nothing; `--uninstall` does not undo it.
   Save: the window follows within a second. The panel needs no `"focusable"` entry in the layout, because `mod/mod.json` already sets it. Keys can open it too: `"<key>": "<tab bar mod>.diffviewer"` in `keys.json`.
 - **Keys:** to bind a command, the user adds `wfordiffs.<command>` (`refresh`, `collapse-all`, `fullscreen`, `lazygit-fullscreen`, `lazygit-pane`) in `keys.json`. The menu opens from its `<leader>G` binding, which is also theirs to set.
 

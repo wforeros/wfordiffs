@@ -46,7 +46,7 @@ Optional:
 - **bat** (or `batcat` on Debian/Ubuntu): full syntax highlighting for every language it knows. Without it, only JavaScript/TypeScript, Python and shell are colored; other languages show in one color.
 - **nvim**: enables "Open in Neovim" from a block's menu.
 - **lazygit**: enables the Lazygit button and the menu's "Lazygit > Fullscreen" and "Lazygit > Pane" entries.
-- **node**: only to run the tests (`npm test`). `install.sh` skips them when it's missing.
+- **node**: to run the tests (`npm test`; `install.sh` skips them when it's missing) and for `install.sh --button`.
 - **wslpath**: only when installing from WSL into the Windows app.
 
 Running on Windows: when the Herdr space is a WSL machine, git, bat, nvim and lazygit must be installed inside WSL.
@@ -59,7 +59,7 @@ Ask your AI agent:
 
 The agent follows [RECIPE.md](RECIPE.md), the step-by-step brief for installing this mod.
 
-Manual install: `./install.sh` (use `--uninstall` to remove).
+Manual install: `./install.sh` (use `--uninstall` to remove). `./install.sh --button` also adds a Diffviewer button next to Changes in the top-right corner; it edits your layout and tab bar clones (both must be your own clones, not Herdr's shipped ones) and needs node.
 
 ## Backlog
 
