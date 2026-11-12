@@ -49,6 +49,29 @@ that holds the Changes panel:
 { "id": "changes", "type": "block", "content": { "mod": "herdr-gitdiff" } }
 ```
 
+### For an agent
+
+Asked to add this mod from GitHub (`https://github.com/wforeros/herdr-gitdiff`), follow these steps. The app's
+own AGENTS.md describes copying `mods/<name>/` folders; this repo keeps `mod/` and `menu/` at its root, so
+install with `install.sh`, not by copying folders.
+
+1. Clone the repo into an empty folder.
+2. Find the app home. On Linux and macOS it is `~/.config/herdr-app`, the script's default. On Windows it is
+   `C:\Users\<you>\.config\herdr-app`; from WSL the same folder is `/mnt/c/Users/<you>/.config/herdr-app`.
+   A WSL home's `~/.config` is not the app's.
+3. On Linux, macOS or WSL, run `./install.sh`, with `HERDR_APP_HOME=<app home>` set when the home is not the
+   default (the Windows app from WSL). The script needs bash. It runs the tests first, and a failure installs
+   nothing. Then it checks each mod with `herdr-app` when it finds it; a failed check stops that mod's install,
+   and a mod installed before it stays.
+   Without bash (native Windows, no WSL or Git Bash), copy by hand: `mod/` to `<app home>\mods\herdr-gitdiff`
+   (with `mod/ui/`, and only the `.js` files, `mod.json` and `icons/`), and `menu/` to
+   `<app home>\mods\herdr-gitdiff-menu` (same rule). Then run `herdr-app check` on each folder, if it is on PATH.
+4. Before the person uses it, tell them what the mods do: they run programs through `exec` (`git`, a shell
+   that looks for `nvim` and `lazygit`, and `bat`, `nvim` and `lazygit` when present) and read the files of
+   the repo they show.
+5. Leave `keys.json` and the layouts alone. Add the block above to a layout only if the person asks.
+   To remove the mods, run `./install.sh --uninstall`.
+
 ## Shortcuts
 
 The mod exposes three commands. Bind them in `keys.json` as `herdr-gitdiff.<command>`;
