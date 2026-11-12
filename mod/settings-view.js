@@ -48,7 +48,7 @@ export function settingsView(t, cfg) {
     return h_flex().w_full().h(22).px(8).items_center().bg(tint(color, cfg.line))
       .child(div().w(14).text_color(color).child(sign))
       .child(div().child("const n = "))
-      .child(div().px(1).rounded(2).bg(tint(color, cfg.word)).child(word))
+      .child(div().px(1).bg(tint(color, cfg.word)).child(word))
       .child(div().child(";"));
   };
   const added = cfg.added ?? t.ansi2, removed = cfg.removed ?? t.ansi1;

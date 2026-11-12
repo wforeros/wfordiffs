@@ -3,7 +3,7 @@
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
 import { View, div, svg, PathBuilder, Background } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar, ScrollHandle } from "gpui-base";
-import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, openOverlay, closeOverlay, notify, props, hc, run } from "herdr";
+import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, setShared, openOverlay, closeOverlay, notify, props, hc, run } from "herdr";
 import { selectedRows, reference } from "./ask.js";
 import { ADD_W, NUM_W, CHAR_W, GUTTER_W, PAD_L } from "./metrics.js";
 import { EMPTY_TREE } from "./parse.js";
@@ -347,7 +347,7 @@ export default class GitDiff extends View {
     // In wrap mode a word longer than a line is cut into pieces that fit (see wrap.js).
     const cut = splitMarks(pieces, row.marks);
     const code = h_flex().children((this.wrap ? breakRuns(cut, wrapChars(this.viewport / cols, this.k)) : cut).map(([s, c, hit]) => div().text_color(c ?? t.foreground)
-      .when(hit, (e) => e.bg(wordBg).rounded(2)).when(this.wrap, (e) => e.whitespace_normal()).child(s)));
+      .when(hit, (e) => e.bg(wordBg)).when(this.wrap, (e) => e.whitespace_normal()).child(s)));
     // Wrap: the row grows taller and the tokens break at their own gaps. Otherwise it keeps
     // the widest row's width, and the list scrolls sideways.
     return this.wrap ? code.flex_1().min_w(0).flex_wrap().whitespace_normal().py(1) : code.flex_none();
