@@ -4,7 +4,8 @@
 // Tree and Wrap switch the views the panel shows (the shared "gitdiff.view", as in mod/config.js).
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { theme, props, closeOverlay, openOverlay, shared, setShared } from "herdr";
+import { theme, props, closeOverlay, openOverlay, shared, setShared, spaces, panes, focused, hc } from "herdr";
+import { FIND_LAZYGIT } from "./lazygit.js";
 
 const VIEW_KEY = "gitdiff.view";
 function parseView(value) {
@@ -12,6 +13,26 @@ function parseView(value) {
   if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch { raw = {}; } }
   if (!raw || typeof raw !== "object") raw = {};
   return { side: raw.side === true, tree: raw.tree === true, wrap: raw.wrap === true };
+}
+
+// Where the panel would run git: the focused pane's folder (or the active space's), on its machine.
+// shortcut: the same lookup as activeLocation() in mod/main.js, copied for the same reason as FIND_LAZYGIT.
+function activeLocation() {
+  const space = spaces().find((s) => s.active), f = focused();
+  const pane = f?.pane ? panes().find((p) => p.pane === f.pane) : null;
+  const on = f?.pane === null ? (f.terminal?.includes("/") ? f.terminal.split("/")[0] : null) : space?.machine ?? null;
+  return { cwd: pane?.cwd || f?.cwd || space?.folder, on };
+}
+
+// lazygit in the repo, in a big dialog with just its terminal (no panel in between). Without lazygit the
+// terminal says so.
+async function openLazygit() {
+  const loc = activeLocation();
+  if (!loc.cwd) return;
+  const r = await hc(["run", "--json", "--bg", "--no-parent", "--rm", "--cwd", loc.cwd, ...(loc.on ? ["--on", loc.on] : []), "--", "sh", "-c", FIND_LAZYGIT, "sh"]);
+  if (r.code !== 0) return;
+  const address = JSON.parse(r.stdout).address;
+  openOverlay({ kind: "dialog", width: 0.94, height: 0.9, layout: { type: "column", children: [{ type: "block", content: { terminal: address } }] } });
 }
 
 export default class ChangesMenu extends View {
@@ -33,9 +54,8 @@ export default class ChangesMenu extends View {
     const all = [
       // Fullscreen shuts the menu and opens the panel full screen (its own dialog of herdr-gitdiff).
       { label: "Fullscreen", run: () => { openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 0.94, height: 0.9, props: { full: true } }); } },
-      // Lazygit shuts the menu and opens the panel's own copy in a dialog, which runs lazygit on the shown repo
-      // (the header's button does the same). Without lazygit there, that copy says so.
-      { label: "Lazygit", run: () => { openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 0.94, height: 0.9, props: { lazygit: true } }); } },
+      // Lazygit shuts the menu and opens a dialog with lazygit's terminal, as the header's button does.
+      { label: "Lazygit", run: () => { openLazygit(); } },
       { label: "Split view", hint: v.side ? "on" : "off", run: (cx) => this.setView({ side: !v.side }, cx) },
       { label: "Tree", hint: v.tree ? "on" : "off", run: (cx) => this.setView({ tree: !v.tree }, cx) },
       { label: "Wrap", hint: v.wrap ? "on" : "off", run: (cx) => this.setView({ wrap: !v.wrap }, cx) },

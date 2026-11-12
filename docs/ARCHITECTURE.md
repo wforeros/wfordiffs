@@ -33,6 +33,7 @@ mod/ui/ui-diff-row.js   a diff's rows: code row, split row, hunk header, change 
 mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
 mod/commit-search.js  pure: the picker's search (filterCommits: a hash's start or part of a subject)
 mod/sides.js      pure: a diff's rows -> pairs (old line left, new line right) for the split view
+menu/lazygit.js    pure: FIND_LAZYGIT, a copy of mod/lazygit.js's for the menu
 menu/main.js      the Changes menu (<leader>g), its own mod (herdr-gitdiff-menu): Herdr's menu look, a filter field, the shared views
 tests/            node:test, one file per module (npm test)
 ```
@@ -146,8 +147,7 @@ menu and the full-screen copy agree. Herdr keeps `shared` state, so the choice s
 The menu is `menu/` (`herdr-gitdiff-menu`), opened with `mod.open` from the tmux-style prefix, so its
 `mod.json` sets the place: a popup at the top, 40px down. Its rows are Herdr's menu's (31px, the highlight,
 the hint on the right); its filter is an `InputState`, as in the picker. The toggles write the shared key
-and stay open; Fullscreen opens the full-screen dialog of `herdr-gitdiff`. Lazygit opens a dialog of
-`herdr-gitdiff` with `props: { lazygit: true }`: that copy runs `openLazygit` once its first load is in (`lazygitOnLoad`),
-so the menu does not carry a second copy of the lazygit launch.
+and stay open; Fullscreen opens the full-screen dialog of `herdr-gitdiff`. Lazygit opens a dialog with just lazygit's terminal (`openLazygit` in `menu/main.js`, the same `hc run` as the panel's `openTool`),
+with no panel in between. The menu is its own mod, so it keeps a copy of `FIND_LAZYGIT` (`menu/lazygit.js`; a test keeps the two equal).
 
 ctrl-d and ctrl-u move the cursor a tenth of the list's visible height (`heights`, set by the list's `on_size_change`), so the list follows it as it does for j and k.

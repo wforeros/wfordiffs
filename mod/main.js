@@ -63,8 +63,6 @@ export default class GitDiff extends View {
     this.searchInput.on("submit", (_e, cx) => { const first = this.shownCommits()[0]; if (first) this.selectCommit(first.sha, cx); });
     // The full-screen copy takes the keyboard as it opens, so the vim keys work at once.
     if (props()?.full) this.handle.focus();
-    // The Changes menu's Lazygit opens this copy with props.lazygit: lazygit opens after the first load.
-    this.lazygitOnLoad = !!props()?.lazygit;
     this.refresh(cx);
     cx.timer.every(POLL_MS, (cx) => this.refresh(cx));
     this.listenForCommands(cx);
@@ -106,11 +104,6 @@ export default class GitDiff extends View {
         this.loc = next.root ? { cwd: next.root, on: loc.on } : null;
         this.nvim = this.loc ? await hasNvim(this.loc) : false;
         this.lazygit = this.loc ? await hasLazygit(this.loc) : false;
-        if (this.lazygitOnLoad) {
-          this.lazygitOnLoad = false;
-          if (this.lazygit) this.openLazygit(cx);
-          else this.flashMessage("lazygit is not installed on the repo's machine", cx);
-        }
         const fp = JSON.stringify([rev, askedBranch, ...next.files.map((f) => [f.path, f.add, f.del, f.status, f.binary])]);
         if (fp !== this.fp) {
           this.fp = fp; this.files = next.files; this.diffs = {}; this.sel = null; this.block = null; // the rows it pointed at are gone
