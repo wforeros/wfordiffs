@@ -39,3 +39,16 @@ export function breakRuns(pieces, max) {
   }
   return out;
 }
+
+// A line's indentation, split off its first piece: { indent, runs } with the runs starting at the first text.
+// The wrapped row lays its pieces out as flex items, and a long first piece cannot share a flex line with a
+// separate indentation item: it moves to the next line and leaves the first one blank. The row draws the
+// indentation and the first piece as one item instead. A line of only whitespace has no text to attach it to.
+export function splitIndent(runs) {
+  const [first, ...rest] = runs;
+  const indent = first?.[0].match(/^\s+/)?.[0];
+  if (!indent) return { indent: "", runs };
+  const text = first[0].slice(indent.length);
+  if (text) return { indent, runs: [[text, first[1], first[2]], ...rest] };
+  return rest.length ? { indent, runs: rest } : { indent: "", runs };
+}

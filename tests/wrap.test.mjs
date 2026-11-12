@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { breakRuns, wrapChars } from "../mod/wrap.js";
+import { breakRuns, wrapChars, splitIndent } from "../mod/wrap.js";
 import { CHAR_W, GUTTER_W } from "../mod/metrics.js";
 
 test("a word longer than the line is cut into chunks; the text is kept whole", () => {
@@ -40,4 +40,18 @@ test("wrapChars: a chunk is never wider than the panel's text area", () => {
   const k = 1.5;
   const max = wrapChars(400, k);
   assert.ok(max * CHAR_W * k <= 400 - GUTTER_W * k);
+});
+
+test("the indentation is split off the first piece, alone or inside it", () => {
+  assert.deepEqual(splitIndent([["    // note", "C", false], [" tail", null, false]]), { indent: "    ", runs: [["// note", "C", false], [" tail", null, false]] });
+  // A piece of only spaces goes, and the next one is the first.
+  assert.deepEqual(splitIndent([["        ", null, false], ["// note", "C", false]]), { indent: "        ", runs: [["// note", "C", false]] });
+});
+
+test("no indentation, or only whitespace: the pieces stay as they are", () => {
+  const runs = [["// note", "C", false]];
+  assert.deepEqual(splitIndent(runs), { indent: "", runs });
+  const blank = [["   ", null, false]];
+  assert.deepEqual(splitIndent(blank), { indent: "", runs: blank });
+  assert.deepEqual(splitIndent([]), { indent: "", runs: [] });
 });

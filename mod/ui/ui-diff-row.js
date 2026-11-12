@@ -7,7 +7,7 @@ import { tint, shade } from "../config.js";
 import { lineColor } from "../diff-colors.js";
 import { langOf, tokens } from "../lexer.js";
 import { splitMarks } from "../inline.js";
-import { breakRuns, wrapChars } from "../wrap.js";
+import { breakRuns, wrapChars, splitIndent } from "../wrap.js";
 import { ADD_W, NUM_W, PAD_L, LINE_H, HUNK_H, HATCH_SHADE } from "../metrics.js";
 
 const BAR_W = 3;       // the bar at a changed line's left edge
@@ -132,8 +132,15 @@ export function codeText(row, path, theme, base, cols, view) {
   // In wrap mode a word longer than a line is cut into pieces that fit (see wrap.js).
   const marked = splitMarks(pieces, row.marks);
   const runs = view.wrap ? breakRuns(marked, wrapChars(view.viewport / cols, view.k)) : marked;
-  const code = h_flex().children(runs.map(([text, color, changed]) => div().text_color(color ?? theme.foreground)
-    .when(changed, (e) => e.bg(wordBg)).when(view.wrap, (e) => e.whitespace_normal()).child(text)));
+  // max_w_full: a run wider than the row (the estimate above let it through) would move whole to a second flex
+  // line, leaving the first one empty beside the line number. Held to the row's width it starts on the first
+  // line and breaks at its own spaces inside. The indentation joins the first run in one item (splitIndent).
+  const { indent, runs: body } = view.wrap ? splitIndent(runs) : { indent: "", runs };
+  const items = body.map(([text, color, changed]) => div().text_color(color ?? theme.foreground)
+    .when(changed, (e) => e.bg(wordBg)).when(view.wrap, (e) => e.whitespace_normal().max_w_full()).child(text));
+  if (indent) items[0] = h_flex().max_w_full()
+    .child(div().flex_none().whitespace_nowrap().child(indent)).child(items[0].flex_1().min_w(0));
+  const code = h_flex().children(items);
   // Wrap: the row grows taller and the tokens break at their own gaps. Otherwise it keeps
   // the widest row's width, and the list scrolls sideways.
   return view.wrap ? code.flex_1().min_w(0).flex_wrap().whitespace_normal().py(1) : code.flex_none();
