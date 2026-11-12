@@ -12,7 +12,7 @@ import { makeGit, msg } from "./git.js";
 import { markWords, splitMarks } from "./inline.js";
 import { breakRuns, wrapChars } from "./wrap.js";
 import { pairSides } from "./sides.js";
-import { parseConfig, tint, DEFAULTS, CFG_KEY, VIEW_KEY, parseView } from "./config.js";
+import { parseConfig, tint, shade, DEFAULTS, CFG_KEY, VIEW_KEY, parseView } from "./config.js";
 import { settingsView } from "./settings-view.js";
 import { discardView } from "./discard-view.js";
 import { hscroll } from "./hscroll.js";
@@ -29,12 +29,17 @@ const ICONS = { M: "modified_file", A: "new_file", D: "deleted_file" };
 
 const POLL_MS = 5000;
 // A layer over the whole parent (see splitRow): the empty half of a side-by-side row is hatched.
+// The hatching's gray is the dim text color, darkened by this factor (config.js shade).
+const HATCH_SHADE = 0.6;
 const RECT = () => PathBuilder.fill().move_to("0%", "0%").line_to("100%", "0%").line_to("100%", "100%").line_to("0%", "100%").close().build();
 // The tree column's share of the body when the tree is on, kept between these by the divider.
 const SPLIT_MIN = 0.2, SPLIT_MAX = 0.8;
 // How far each level of the tree is pushed right, in px at 12px. A row's first 12px are its
 // chevron (a file in the tree has an empty slot); its guide lines run through the middle of those.
 const INDENT = 14, SLOT = 12;
+// Row heights at 12px, GitHub-like: a file row is tall, with its name larger and bold, so the files
+// stand out from the lines of their diffs; a line of code has room above and below it.
+const FILE_H = 36, LINE_H = 26, FILE_NAME = 13;
 // shortcut: expand-all opens at most this many files, each one is a git diff call; raise it if you need more.
 const EXPAND_MAX = 50;
 
@@ -174,7 +179,7 @@ export default class GitDiff extends View {
   key(e, cx) {
     const k = e.keystroke;
     const i = this.files.findIndex((f) => f.path === this.cursor);
-    const tenth = Math.max(1, Math.floor((this.heights["herdr-gitdiff-list"] ?? 0) / this.px(28) / 10));
+    const tenth = Math.max(1, Math.floor((this.heights["herdr-gitdiff-list"] ?? 0) / this.px(FILE_H) / 10));
     if (k === "j" || k === "k" || k === "ctrl-d" || k === "ctrl-u") {
       if (!this.files.length) return;
       const step = { j: 1, k: -1, "ctrl-d": tenth, "ctrl-u": -tenth }[k];
@@ -270,9 +275,9 @@ export default class GitDiff extends View {
     // line is 1px); a folder's line starts a little below its chevron, not on top of it.
     // A folder's last row: its line ends at the foot of that row's name (the text's middle plus half
     // its box), not at the middle.
-    const color = t.border, full = this.px(28), end = this.px(14 + SLOT / 2);
+    const color = t.border, full = this.px(FILE_H), end = this.px(FILE_H / 2 + SLOT / 2);
     const x = (depth) => this.px(depth * INDENT) + Math.round(this.px(SLOT) / 2) - 0.5;
-    const below = this.px(14 + SLOT / 2 + 3);
+    const below = this.px(FILE_H / 2 + SLOT / 2 + 3);
     const lines = e.through.map((through, c) => div().absolute().left(x(c)).top(0).w(1).h(through ? full : end).bg(color));
     if (e.hangs) lines.push(div().absolute().left(x(e.depth)).top(below).w(1).h(full - below).bg(color));
     return lines;
@@ -280,7 +285,7 @@ export default class GitDiff extends View {
 
   // A folder with changes (tree view): its name and the totals below it. Not clickable.
   dirRow(e, t) {
-    return h_flex().id(`d-${e.path}`).relative().w_full().h(this.px(28)).pl(this.pad(e)).pr(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
+    return h_flex().id(`d-${e.path}`).relative().w_full().h(this.px(FILE_H)).pl(this.pad(e)).pr(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .children(this.guides(e, t))
       .on_click((_e, cx) => this.toggleFold(e.path, cx))
       .child(svg(`mods/herdr-gitdiff/icons/chevron-${e.open ? "down" : "right"}.svg`).size(this.px(SLOT)).flex_none().text_color(t.dim))
@@ -296,14 +301,20 @@ export default class GitDiff extends View {
     const icon = ICONS[f.status] ?? ICONS.M;
     const color = f.status === "A" ? added : f.status === "D" ? removed : this.cfg.modified ?? t.blocked;
     const col = e.tree ? "t" : "l"; // the two columns can show the same file: their ids differ
-    return h_flex().id(`${col}-f-${f.path}`).relative().w_full().h(this.px(28)).pl(this.pad(e)).pr(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
+    return h_flex().id(`${col}-f-${f.path}`).relative().w_full().h(this.px(FILE_H)).pl(this.pad(e)).pr(10).gap(8).items_center().cursor_pointer().hover((s) => s.bg(t.hover))
       .children(this.guides(e, t))
-      .when(!e.tree && this.cursor === f.path, (x) => x.bg(t.selected))
+      // The cursor's file: a faint tint of the accent, not a gray, so it is not mistaken for the hatching.
+      .when(!e.tree && this.cursor === f.path, (x) => x.bg(tint(t.accent ?? t.muted, 0.16)))
       .on_click((_e, cx) => { this.cursor = f.path; this.toggle(f.path, cx); })
       // A file in the tree has no chevron, only its icon (kept in the folders' column so they line up).
       .child(e.tree ? div().w(this.px(SLOT)).flex_none() : svg(`mods/herdr-gitdiff/icons/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim))
-      .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(14).flex_none().text_color(color).tooltip(icon.replace("_", " ")))
-      .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(!e.tree && parts.length ? parts.join("/") + "/" : "")).child(div().max_w(260).min_w(0).truncate().child(name)))
+      // The list's icon is larger with its larger name; the tree's matches the folders' icons (14).
+      .child(svg(`mods/herdr-gitdiff/icons/custom/${icon}.svg`).size(e.tree ? 14 : this.px(16)).flex_none().text_color(color).tooltip(icon.replace("_", " ")))
+      // The name is larger and bold, the folders above it dim: a file reads apart from its diff's lines.
+      .child(h_flex().flex_1().min_w(0).child(div().text_color(t.dim).truncate().child(!e.tree && parts.length ? parts.join("/") + "/" : ""))
+        .child(div().max_w(260).min_w(0).truncate().when(!e.tree, (x) => x.font_semibold().text_size(this.px(FILE_NAME)).text_color(t.foreground))
+          // In the tree a file's name is as plain as a folder's below the top: same size, weight and color.
+          .when(e.tree, (x) => x.text_color(t.muted)).child(name)))
       // The tree shows only where the changes are: the line counts and nvim are the list's.
       // Fixed slots (an empty one when a file has no icon) and a counts column as wide as the
       // widest file's numbers, so the icons sit at the same x in every row.
@@ -370,14 +381,14 @@ export default class GitDiff extends View {
       // diff shows only on an empty side.
       const bg = row ? t.background : null, tinted = base ? tint(base, this.cfg.line) : null;
       const line = h_flex().flex_1().min_w(0).when(!!row, (e) => e.pl(this.px(PAD_L))).when(off > 0, (e) => e.ml(-off)).when(!!tinted, (e) => e.bg(tinted))
-        .when(this.wrap, (e) => e.min_h(this.px(20)).items_stretch()).when(!this.wrap, (e) => e.h(this.px(20)).items_center())
+        .when(this.wrap, (e) => e.min_h(this.px(LINE_H)).items_stretch()).when(!this.wrap, (e) => e.h(this.px(LINE_H)).items_center())
         // An empty side has no line: a block in the hatching's colour, from the side's left edge to where
         // the numbers sit, so nothing hatched shows to its left.
         .child(row
           ? div().w(this.px(NUM_W)).flex_none().text_right().pr(4).when(this.wrap, (e) => e.py(1)).text_color(base ?? t.dim).child(num ?? "")
           // A strip of the background between the block and the hatching (opaque, so the hatching stops there).
           : h_flex().flex_none().items_stretch().when(!this.wrap, (e) => e.h_full())
-            .child(div().w(this.px(PAD_L + NUM_W)).when(!this.wrap, (e) => e.h_full()).bg(t.dim))
+            .child(div().w(this.px(PAD_L + NUM_W)).when(!this.wrap, (e) => e.h_full()).bg(shade(t.dim, HATCH_SHADE)))
             .child(div().w(this.px(4)).when(!this.wrap, (e) => e.h_full()).bg(t.background)))
         .child(row ? this.codeText(row, g.file.path, t, base, 2) : div());
       return h_flex().flex_1().min_w(0).relative().overflow_hidden().items_stretch().when(bg, (e) => e.bg(bg)).when(right, (e) => e.border_l(1).border_color(t.border))
@@ -400,7 +411,7 @@ export default class GitDiff extends View {
   // The thin grey diagonals of the empty sides, one period (px(14)) apart: one layer over the diff,
   // under its rows, so they run on from row to row.
   hatch(t, height) {
-    return window.paint_path(RECT(), Background.pattern_slash(t.dim, 1, this.px(14))).absolute().top(0).left(0).w_full().h(height);
+    return window.paint_path(RECT(), Background.pattern_slash(shade(t.dim, HATCH_SHADE), 1, this.px(14))).absolute().top(0).left(0).w_full().h(height);
   }
 
   codeRow(row, path, t, width, i, col = "") {
@@ -429,7 +440,7 @@ export default class GitDiff extends View {
         } else if (this.hover === key) this.hover = null;
         cx.notify();
       })
-      .when(this.wrap, (e) => e.min_h(this.px(20)).items_stretch()).when(!this.wrap, (e) => e.h(this.px(20)).items_center())
+      .when(this.wrap, (e) => e.min_h(this.px(LINE_H)).items_stretch()).when(!this.wrap, (e) => e.h(this.px(LINE_H)).items_center())
       // The bar at the row's left edge (a changed line's; a context line keeps the space), then the
       // gutter, which starts at the chevron's inset (PAD_L) so the numbers line up under it.
       .child(this.bar(base))
