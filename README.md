@@ -17,14 +17,14 @@ A Changes panel for [Herdr](https://herdr.dev): the files changed in the repo yo
 - Toggle line wrap for long lines.
 - Select lines or blocks and copy a `path#L12-L14` reference to the clipboard.
 - Discard unstaged changes per file, with a confirmation.
-- Customize the added and removed colors from a palette, the tint strength, and the font size (9–24 px) from the gear settings, with a reset to defaults.
-- Keyboard navigation (`j`, `k`, `l`, `h`, `enter`) and commands `refresh`, `expand-all`, `collapse-all`, `fullscreen`.
+- Customize the added and removed colors from a palette, the tint strength, the font size (9–24 px) and where Lazygit opens (over the panel or fullscreen) from the gear settings, with a reset to defaults.
+- Keyboard navigation (`j`, `k`, `l`, `h`, `enter`) and commands `refresh`, `expand-all`, `collapse-all`, `fullscreen`, `lazygit-fullscreen`, `lazygit-pane`.
 - Makes no commits and no branches.
 
 ### Optional extras
 
 - **Open in Neovim**: with `nvim` installed, a block's menu opens the file at that line.
-- **Lazygit**: with `lazygit` installed, a button opens it in the repo in a large dialog.
+- **Lazygit**: with `lazygit` installed, the header's button opens it over the panel's body (the header stays; click again to close it), or in a large dialog if the gear settings say Fullscreen. The menu offers both: Lazygit > Fullscreen and Lazygit > Pane. The commands `lazygit-fullscreen` (a large dialog over the window) and `lazygit-pane` (over the panel's body) can be bound as `herdr-gitdiff.<command>` in `keys.json`.
 
 Without them the mod works, but these options don't appear.
 
@@ -41,7 +41,7 @@ Optional:
 
 - **bat** (or `batcat` on Debian/Ubuntu): full syntax highlighting for every language it knows. Without it, only JavaScript/TypeScript, Python and shell are colored; other languages show in one color.
 - **nvim**: enables "Open in Neovim" from a block's menu.
-- **lazygit**: enables the Lazygit button and menu entry.
+- **lazygit**: enables the Lazygit button and the menu's "Lazygit > Fullscreen" and "Lazygit > Pane" entries.
 - **node**: only to run the tests (`npm test`). `install.sh` skips them when it's missing.
 - **wslpath**: only when installing from WSL into the Windows app.
 

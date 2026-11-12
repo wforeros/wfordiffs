@@ -5,8 +5,9 @@
 // added / removed: the color of the + and − lines (default: the theme's green and red).
 // line: how strong the tint of a whole changed line is (0 to 1).
 // word: how strong the tint of the exact words that changed is (0 to 1).
+// lazygitFull: the header's Lazygit button opens a big dialog over the window (true) or lazygit over the panel's body (false).
 export const CFG_KEY = "gitdiff.cfg";
-export const DEFAULTS = { added: null, removed: null, modified: null, line: 0.09, word: 0.38, font: 12 };
+export const DEFAULTS = { added: null, removed: null, modified: null, line: 0.09, word: 0.38, font: 12, lazygitFull: false };
 
 export const FONT_MIN = 9, FONT_MAX = 24;
 const hex = (v) => (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : null);
@@ -21,7 +22,7 @@ export function parseConfig(value) {
   if (!raw || typeof raw !== "object") raw = {};
   return {
     added: hex(raw.added), removed: hex(raw.removed), modified: hex(raw.modified),
-    line: amount(raw.line, DEFAULTS.line), font: clampFont(raw.font), word: amount(raw.word, DEFAULTS.word),
+    line: amount(raw.line, DEFAULTS.line), font: clampFont(raw.font), word: amount(raw.word, DEFAULTS.word), lazygitFull: raw.lazygitFull === true,
   };
 }
 

@@ -30,14 +30,18 @@ mod/ui/ui-header.js     the header: title, picker button, toggles, totals
 mod/ui/ui-commit-menu.js  the commit's message block and the picker (Uncommitted, Branches, Commits; the commits list has the search field)
 mod/ui/ui-file-row.js   folder rows, file rows and the tree's guide lines
 mod/ui/ui-error-bar.js  an error at the bottom of the panel, with Copy and dismiss buttons (a tool that could not open)
+mod/ui/ui-resize-notice.js  what the panel says under lazygit's window while it steps aside for a resize
 mod/ui/ui-diff-row.js   a diff's rows: code row, split row, hunk header, change bar, hatching
+mod/utils/tool-window.js  makeToolWindow({ hc, run, openOverlay, closeOverlay, terminals }) -> open, close, isUp, resized: runs a tool (lazygit, nvim, ...) in a terminal of its own and shows it over the panel's body or in a dialog; one at a time
+mod/utils/screen-wait.js  pure: waitForScreen (a window opens on a tool's terminal once it has drawn, not blank)
 mod/wrap.js       pure: wrap mode's chunks for a word longer than the line
 mod/commit-search.js  pure: the picker's search (filterCommits: a hash's start or part of a subject)
 mod/sides.js      pure: a diff's rows -> pairs (old line left, new line right) for the split view
-menu/lazygit.js    pure: FIND_LAZYGIT, a copy of mod/lazygit.js's for the menu
 menu/main.js      the Changes menu (<leader>g), its own mod (herdr-gitdiff-menu): Herdr's menu look, a filter field, the shared views
 tests/            node:test, one file per module (npm test)
 ```
+
+`mod/utils/` holds what does not know this mod: `tool-window.js` and `screen-wait.js` take Herdr's functions as arguments, import nothing from the rest of `mod/` (only each other), so they can move out as a package later.
 
 Only `main.js`, `hscroll.js` and the `ui/ui-*.js` files import from `herdr`/`gpui-*` (the `ui-*` files only
 from `gpui-*`: they draw from values and callbacks the view hands in and never read its state). `git.js` and `highlight.js`
@@ -112,6 +116,8 @@ copy takes the keyboard as it opens (`init` calls `handle.focus()`), so the vim 
 command does nothing while the panel is hidden from the layout (the button and any caller that opens the
 dialog directly still work).
 
+`lazygit-fullscreen` (the command only; the header's button opens lazygit over the panel's body) opens lazygit in that same kind of big dialog (`openLazygitFullscreen`, `openTool` without a spot). It closes the panel's lazygit first, so there is one at a time, and the dialog's copy ignores it.
+
 ## Keys in the panel
 
 The root takes the keyboard (`track_focus(this.handle)`), and a click on it gives it (`handle.focus()`).
@@ -148,7 +154,19 @@ menu and the full-screen copy agree. Herdr keeps `shared` state, so the choice s
 The menu is `menu/` (`herdr-gitdiff-menu`), opened with `mod.open` from the tmux-style prefix, so its
 `mod.json` sets the place: a popup at the top, 40px down. Its rows are Herdr's menu's (31px, the highlight,
 the hint on the right); its filter is an `InputState`, as in the picker. The toggles write the shared key
-and stay open; Fullscreen opens the full-screen dialog of `herdr-gitdiff`. Lazygit opens a dialog with just lazygit's terminal (`openLazygit` in `menu/main.js`, the same `hc run` as the panel's `openTool`),
-with no panel in between. The menu is its own mod, so it keeps a copy of `FIND_LAZYGIT` (`menu/lazygit.js`; a test keeps the two equal).
+and stay open; Fullscreen opens the full-screen dialog of `herdr-gitdiff`. Both Lazygit rows ("Lazygit > Fullscreen", "Lazygit > Pane") run the panel's commands (`run("herdr-gitdiff.lazygit-fullscreen")`, `...lazygit-pane`) and launch nothing themselves: the menu is shut before a row runs, so a launch that waits for `hc` would finish in a menu that is gone. The panel knows the repo and closes its own lazygit first. Like any mod command they reach shown copies only, so the panel must be shown.
 
 ctrl-d and ctrl-u move the cursor a tenth of the list's visible height (`heights`, set by the list's `on_size_change`), so the list follows it as it does for j and k.
+
+## Tools in a terminal (lazygit, nvim)
+
+`utils/tool-window.js` runs a program in a terminal of its own (`hc run --bg`, no pane) and shows it once it has drawn
+(`utils/screen-wait.js`), either in a window over the panel's body (`spot`, from `bodyBox()` in `main.js`) or in a big
+dialog over the window. A tool is data, `{ id, script, args }`: the `script` is a `sh -c` that finds the program and
+execs it (`FIND_LAZYGIT`, `FIND_NVIM`). One tool is up over the body at a time: opening another closes it, the panel
+follows a resize (`onResized`); the body shows the resize notice only while the window is away (`isAway`), and drops it a moment after the window is back, so the body never shows between them.
+
+To add a tool: write its `FIND_*` launch next to its availability check (as `lazygit.js`, `nvim.js`), then in
+`main.js` call `this.runTool({ id, script, args }, cx, { pane: true })` from a button, a key or a command; `pane: false`
+(the default) is the dialog. `main.js` keeps what is specific to a tool: whether it is installed, which button shows it
+(`toggleLazygit`), and which commands open it (`lazygit-pane`, `lazygit-fullscreen`).

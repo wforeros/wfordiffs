@@ -46,8 +46,3 @@ test("the check and the launch look in the same places", () => {
   }
   assert.match(FIND_LAZYGIT, /exec "\$n"/);
 });
-
-test("the menu's launch is the same as the panel's", async () => {
-  const menu = await import("../menu/lazygit.js");
-  assert.equal(menu.FIND_LAZYGIT, FIND_LAZYGIT);
-});

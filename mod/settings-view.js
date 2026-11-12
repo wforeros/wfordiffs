@@ -43,6 +43,15 @@ export function settingsView(t, cfg) {
       .child(btn("less", "−", -1)).child(div().w(40).text_center().child(`${cfg.font}px`)).child(btn("more", "+", 1));
   };
 
+  // Where the header's Lazygit button opens lazygit: over the panel's body, or in a big dialog.
+  const lazygitRow = () => {
+    const option = (id, text, full) => div().id(`lazygit-${id}`).px(8).h(24).rounded(5).flex().items_center().cursor_pointer()
+      .border_1().border_color(cfg.lazygitFull === full ? t.foreground : t.border).hover((s) => s.bg(t.hover))
+      .text_color(cfg.lazygitFull === full ? t.foreground : t.muted).on_click((_e, cx) => set({ lazygitFull: full }, cx)).child(text);
+    return h_flex().items_center().gap(8).child(div().w(70).text_color(t.muted).text_size(11).child("Lazygit"))
+      .child(option("panel", "In the panel", false)).child(option("full", "Fullscreen", true));
+  };
+
   // A changed line as it will look: the rest of the line tinted, the changed word stronger.
   const sample = (kind, color, word) => {
     const sign = kind === "+" ? "+" : "−";
@@ -62,7 +71,7 @@ export function settingsView(t, cfg) {
     .child(palette("Added", "added", GREENS, t.ansi2))
     .child(palette("Removed", "removed", REDS, t.ansi1))
     .child(palette("Modified", "modified", AMBERS, t.blocked))
-    .child(v_flex().gap(8).child(stepper("Line tint", "line")).child(stepper("Word tint", "word")).child(fontRow()))
+    .child(v_flex().gap(8).child(stepper("Line tint", "line")).child(stepper("Word tint", "word")).child(fontRow()).child(lazygitRow()))
     .child(v_flex().rounded(5).overflow_hidden().border_1().border_color(t.border).child(sample("-", removed, "42")).child(sample("+", added, "43")))
     .child(div().id("cfg-reset").self_start().px(8).py(3).rounded(5).border_1().border_color(t.border).cursor_pointer().hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => { setShared(CFG_KEY, { ...DEFAULTS }); cx.notify(); }).child("Reset"));

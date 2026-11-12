@@ -3,7 +3,7 @@
 // Runs git (and bat, for colors) where the shown space lives: WSL for the "wsl" machine.
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar, ScrollHandle, InputState } from "gpui-base";
-import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, setShared, openOverlay, closeOverlay, notify, props, hc } from "herdr";
+import { spaces, panes, focused, exec, readTextFile, nextCommand, theme, settings, shared, setShared, openOverlay, closeOverlay, notify, props, hc, run, terminals } from "herdr";
 import { selectedRows, reference } from "./ask.js";
 import { CHAR_W, GUTTER_W, FILE_H } from "./metrics.js";
 import { makeGit, noticeRows } from "./git.js";
@@ -18,6 +18,7 @@ import { shortRev } from "./commit-message.js";
 import { filterCommits } from "./commit-search.js";
 import { numberBlocks } from "./parse.js";
 import { header as drawHeader } from "./ui/ui-header.js";
+import { resizeNotice } from "./ui/ui-resize-notice.js";
 import { errorBar } from "./ui/ui-error-bar.js";
 import { codeRow as drawCodeRow, splitRow as drawSplitRow, hatching, blockAction } from "./ui/ui-diff-row.js";
 import { dirRow as drawDirRow, fileRow as drawFileRow } from "./ui/ui-file-row.js";
@@ -28,11 +29,14 @@ import { makeHighlighter, attachColors } from "./highlight.js";
 import { treeRows } from "./tree.js";
 import { makeNvim, FIND_NVIM } from "./nvim.js";
 import { makeLazygit, FIND_LAZYGIT } from "./lazygit.js";
+import { makeToolWindow } from "./utils/tool-window.js";
 
 const { load, diffFor, discard, history, branches } = makeGit({ exec, readTextFile });
 const { highlight } = makeHighlighter({ exec, settings });
 const { hasNvim } = makeNvim({ exec });
 const { hasLazygit } = makeLazygit({ exec });
+const LAZYGIT = { id: "lazygit", script: FIND_LAZYGIT };
+
 
 // A binary (or non-UTF-8) file is listed but not opened: no diff, no nvim. // shortcut: its trash stays, so it can still be discarded.
 const openable = (f) => !f.binary;
@@ -58,6 +62,8 @@ export default class GitDiff extends View {
     // Keys (see onKey()): the panel takes the keyboard on a click.
     this.handle = cx.focus_handle();
     this.listScroll = ScrollHandle.new();
+    // nvim and lazygit run in a terminal of their own, shown over the body or in a dialog (tool-window.js).
+    this.tools = makeToolWindow({ hc, run, openOverlay, closeOverlay, terminals });
     // The commits list's search field: it filters the branch's commits; enter shows the first match.
     this.searchInput = InputState.new({ placeholder: "Search commits…" });
     this.searchInput.on("change", (_e, cx) => { this.query = this.searchInput.value(); cx.notify(); });
@@ -77,6 +83,11 @@ export default class GitDiff extends View {
         if (command === "refresh") this.refresh(cx);
         // The dialog's own copy ignores it: it is already full screen.
         else if (command === "fullscreen") { if (!props()?.full) this.openFull(); }
+        // lazygit in the big dialog over the window (what the button did before it moved into the panel). The
+        // dialog's own copy ignores it, as it does "fullscreen". One lazygit at a time: the panel's steps aside.
+        else if (command === "lazygit-fullscreen") { if (!props()?.full) this.openLazygit(cx, { pane: false }); }
+        // lazygit over the panel's body, as the header's button opens it (the menu's Lazygit > Pane). Not the dialog's copy.
+        else if (command === "lazygit-pane") { if (!props()?.full && !this.tools.isUp("lazygit")) this.openLazygit(cx, { pane: true }); }
         // pane.go (ctrl-a then h/j/k/l, or the keys) gives the panel the keyboard: it takes it on its own handle.
         else if (command === "focus") this.handle.focus();
         else if (command === "collapse-all") this.open.clear();
@@ -252,29 +263,52 @@ export default class GitDiff extends View {
     openOverlay({ mod: "herdr-gitdiff", kind: "dialog", width: 0.94, height: 0.9, props: { full: true } });
   }
 
-  // A tool in a big dialog over the panel (nvim, lazygit): it closes itself when the tool exits, and the
-  // Changes view is right there. The terminal is started apart from any pane.
-  // No pane.focus here: the app only focuses a terminal of a visible layout block, so for the dialog's
-  // terminal it reports "no such pane" (a notice, not a throw). A click in the dialog focuses it.
-  async openTool(script, args, label, cx) {
+  // Runs a tool (nvim, lazygit, ...) in a terminal of its own and shows it: in a window over the panel's body when
+  // `pane` is set and the body can be measured, else in a big dialog over the window (tool-window.js). One at a
+  // time. The work runs in cx.spawn: the cx of a click is only good until the handler returns, and this waits for hc.
+  runTool(tool, cx, { pane = false } = {}) {
     const loc = this.loc;
     if (!loc) return;
-    try {
-      const r = await hc(["run", "--json", "--bg", "--no-parent", "--rm", "--cwd", loc.cwd, ...(loc.on ? ["--on", loc.on] : []), "--", "sh", "-c", script, "sh", ...args]);
-      if (r.code !== 0) throw new Error(r.stderr.trim() || "hc run failed");
-      const address = JSON.parse(r.stdout).address;
-      openOverlay({ kind: "dialog", width: 0.94, height: 0.9, layout: { type: "column", children: [{ type: "block", content: { terminal: address } }] } });
-    } catch (e) { this.showError(`Could not open ${label}: ${e?.message ?? e}`, cx); }
+    cx.spawn(async (cx) => {
+      try { await this.tools.open({ tool, loc, cx, spot: pane ? this.bodyBox() : null, onEnd: (cx) => cx.notify() }); }
+      catch (e) { this.showError(`Could not open ${tool.id}: ${e?.message ?? e}`, cx); }
+      cx.notify();
+    });
   }
 
   // nvim on a file, at a line (a block's, from its menu or the e key).
   openNvim(path, cx, line = null) {
-    return this.openTool(FIND_NVIM, [...(line ? [`+${line}`] : []), path], "nvim", cx);
+    this.runTool({ id: "nvim", script: FIND_NVIM, args: [...(line ? [`+${line}`] : []), path] }, cx);
   }
 
-  // lazygit in the repo.
-  openLazygit(cx) {
-    return this.openTool(FIND_LAZYGIT, [], "lazygit", cx);
+  // The panel's body (everything under the header). `at` takes window pixels (what the pointer's box is in),
+  // but width and height are logical, so they are divided by the zoom. The panel's own size is measured live
+  // (rootSize, set on every resize); the pointer's box only gives where its right edge and top are, and the
+  // panel hugs the window's right edge, so a resize moves its left side. Rounded: a half pixel shows as a seam.
+  // shortcut: the right edge and the top are the last box the pointer reported, so resizing the app's window
+  // (not the panel) leaves the tool in the old frame until the next pointer move and panel resize.
+  bodyBox() {
+    const b = this.box, h = this.headerH, size = this.rootSize, z = settings()?.zoom || 1;
+    if (!b || !h || !size || props()?.full || size.width < 50 || size.height - h < 50) return null; // a hidden panel measures 0
+    return { x: Math.round(b.x + b.width - size.width), y: Math.round(b.y + h), width: Math.round(size.width / z), height: Math.round((size.height - h) / z) };
+  }
+
+  // The panel is being resized while a tool is up over its body: the tool's window follows (tool-window.js).
+  onResized(cx) {
+    this.tools.resized(cx, () => this.bodyBox(), (cx) => cx.notify());
+  }
+
+  // lazygit in the repo: `pane` puts it over the panel's body, else in the big dialog. The header button (per the
+  // gear's setting) and the commands `lazygit-pane` and `lazygit-fullscreen` come here.
+  openLazygit(cx, { pane }) {
+    if (!this.lazygit) return this.showError("Could not open lazygit: it is not installed where this repo lives.", cx);
+    this.runTool(LAZYGIT, cx, { pane });
+  }
+
+  // The header's lazygit button: opens lazygit, or closes it while it is up.
+  toggleLazygit(cx) {
+    if (this.tools.isUp("lazygit")) { this.tools.close(); return cx.notify(); }
+    this.openLazygit(cx, { pane: !this.cfg.lazygitFull });
   }
 
   // The reference of the selected lines, "<full path>#L1-L3", copied for pasting in the chat.
@@ -454,6 +488,7 @@ export default class GitDiff extends View {
 
   // Dragging the divider: to the right makes the list wider, so the tree narrower.
   onPointerMove(e, cx) {
+    if (e.bounds) this.box = e.bounds;
     if (!this.splitDrag || !this.bodyW) return;
     const next = draggedShare(this.splitDrag, e.position.x, this.bodyW, SPLIT_MIN, SPLIT_MAX);
     if (next !== this.split) { this.split = next; cx.notify(); }
@@ -473,9 +508,9 @@ export default class GitDiff extends View {
       revLabel: `${this.branch ? `vs ${this.branch}` : this.rev ? shortRev(this.rev, this.commits) : "Uncommitted"} ▾`,
       flash: this.flash, totals, view: { wrap: this.wrap, side: this.side, tree: this.tree }, isFull: !!props()?.full,
       onToggleMenu: (cx) => { if (this.menu) { this.menu = false; this.sub = null; cx.notify(); } else this.openPicker(cx); },
-      onOpenSettings: () => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 510, props: { settings: true } }),
+      onOpenSettings: () => openOverlay({ mod: "herdr-gitdiff", kind: "window", key: "gitdiff-settings", width: 300, height: 560, props: { settings: true } }),
       onSetView: (patch, cx) => this.setView(patch, cx), onOpenFull: () => this.openFull(),
-      lazygit: this.lazygit, onOpenLazygit: (cx) => this.openLazygit(cx) });
+      lazygit: this.lazygit, lazygitOn: this.tools.isUp("lazygit"), onToggleLazygit: (cx) => this.toggleLazygit(cx) });
   }
 
   // The shown commit's message under the header.
@@ -518,13 +553,17 @@ export default class GitDiff extends View {
     if (props()?.discard) return discardView(t, { target: props().discard.file, busy: this.busy, error: this.err,
       onConfirm: (_e, cx) => this.confirmDiscard(cx), onCancel: () => closeOverlay(props().overlay) });
     this.countsW = this.countsWidth();
+    const away = this.tools.isAway();
     return v_flex().id("herdr-gitdiff").size_full().relative().track_focus(this.handle)
       .on_key_down((e, cx) => this.onKey(e, cx)).on_mouse_down("left", () => this.handle.focus())
       .on_mouse_move((e, cx) => this.onPointerMove(e, cx)).on_mouse_up("left", (_e, cx) => this.onPointerUp(cx))
+      .on_size_change((size, cx) => { this.rootSize = size; this.onResized(cx); })
       .min_h(0).bg(t.background).text_color(t.foreground).text_size(this.cfg.font).font_family(settings().font_family ?? "JetBrains Mono")
-      .child(this.header(t))
-      .when(!!this.rev && !!this.message, (e) => e.child(this.commitMessage(t)))
-      .child(this.files.length === 0 ? this.emptyNotice(t) : this.columns(t))
+      .child(div().w_full().flex_none().on_size_change((size) => { this.headerH = size.height; }).child(this.header(t)))
+      // A tool's window covers the body; while it steps aside for a resize, this says why.
+      .when(away, (e) => e.child(resizeNotice(t, { px: (n) => this.px(n) })))
+      .when(!away && !!this.rev && !!this.message, (e) => e.child(this.commitMessage(t)))
+      .when(!away, (e) => e.child(this.files.length === 0 ? this.emptyNotice(t) : this.columns(t)))
       // At the bottom, under whatever the body shows.
       .when(!!this.toolError, (e) => e.child(errorBar(t, { text: this.toolError, copied: this.errorCopied, cfg: this.cfg, px: (n) => this.px(n),
         onCopy: (_e, cx) => this.copyError(cx), onDismiss: (_e, cx) => { this.toolError = null; cx.notify(); } })))

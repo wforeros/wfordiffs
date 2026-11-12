@@ -15,3 +15,10 @@ test("shade darkens each channel of a #rrggbb color", () => {
   assert.equal(shade("#6c7086", 0.6), "#414350");
   assert.equal(shade("rgb(1,2,3)", 0.5), "rgb(1,2,3)");
 });
+
+import { parseConfig } from "../mod/config.js";
+test("lazygitFull is off unless it is true", () => {
+  assert.equal(parseConfig(null).lazygitFull, false);
+  assert.equal(parseConfig({ lazygitFull: "yes" }).lazygitFull, false);
+  assert.equal(parseConfig('{"lazygitFull":true}').lazygitFull, true);
+});

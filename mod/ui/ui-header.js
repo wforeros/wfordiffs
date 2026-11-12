@@ -31,7 +31,8 @@ const notice = (theme, cfg) => (el) => el.min_w(0).truncate().text_size(10).text
  * @property {(patch: object, cx: object) => void} onSetView patch of { wrap, side, tree }
  * @property {() => void} onOpenFull
  * @property {boolean} lazygit lazygit is installed where the repo is: its button shows
- * @property {(cx: object) => void} onOpenLazygit
+ * @property {boolean} lazygitOn lazygit is up over the panel: its button is lit, and a click closes it
+ * @property {(cx: object) => void} onToggleLazygit opens lazygit, or closes it when it is up
  */
 
 /**
@@ -50,9 +51,10 @@ export function header(theme, o) {
     .child(chip(theme)(div()).child(`${o.fileCount} files`))
     .when(!!o.flash, (el) => el.child(notice(theme, o.cfg)(div()).child(o.flash)))
     .child(div().flex_1())
-    // Only where lazygit is installed (lazygit.js); it opens lazygit in the repo.
+    // Only where lazygit is installed (lazygit.js); it opens lazygit in the repo, and while it is up it closes it.
     .when(o.lazygit, (el) => el.child(iconButton({ id: "herdr-gitdiff-lazygit", icon: icon("lazygit"),
-      tooltip: "Open lazygit in this repo", onClick: (_e, cx) => o.onOpenLazygit(cx) }, theme)))
+      active: o.lazygitOn, tooltip: o.lazygitOn ? "Close lazygit" : "Open lazygit in this repo",
+      onClick: (_e, cx) => o.onToggleLazygit(cx) }, theme)))
     .child(toggle("wrap", "wrap", "Wrap long lines"))
     .child(toggle("side", "split", "Split: before on the left, after on the right"))
     .child(toggle("tree", "tree", "Tree: show the changed folders as a tree, on the right"))
