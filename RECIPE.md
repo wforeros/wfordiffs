@@ -35,6 +35,15 @@ The mod has no agent states: it shows the repo's changes only.
 - **Programs run through `exec`:** `git` on the repo's machine, `sh` (to start `bat` and to find `nvim` and `lazygit`), and, when present, `bat` for highlighting, `nvim` and `lazygit`.
 - **Art:** the icons in `mod/icons/` are drawn after Lucide (ISC) and taken from herdr-git-graph (MIT). Keep `LICENSE-lucide.txt` beside them. The nvim mark is Simple Icons (CC0).
 
+## Install
+
+`./install.sh` copies the two mods into the app home as `mods/wfordiffs` (the panel, from `mod/`) and `mods/wfordiffs-menu` (its menu, from `menu/`). It checks each with `herdr-app check` before it lands, replaces only a folder whose `mod.json` title is its own, and `./install.sh --uninstall` removes only those two.
+
+The script never touches `keys.json` or any layout. Showing the panel and binding keys is the user's choice, and the user asks for it:
+
+- **Layout:** to put the panel in a layout, the user adds a pane with `content.mod` set to `wfordiffs`.
+- **Keys:** to bind a command, the user adds `wfordiffs.<command>` (`refresh`, `expand-all`, `collapse-all`, `fullscreen`, `lazygit-fullscreen`, `lazygit-pane`) in `keys.json`. The menu opens from its `<leader>g` binding, which is also theirs to set.
+
 ## Watch out
 
 - Colors come from Catppuccin (Mocha, or Latte in light appearance), not from Herdr's theme.
